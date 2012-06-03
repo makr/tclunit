@@ -1,0 +1,14 @@
+Refactoring Goals:
+
+1. separate GUI from function
+
+2. set functionality on top on tcltest, i.e. with interface and behavior
+   compatibility
+
+3. dump results as TestNG compatible XML file
+
+
+Notes to self:
+* stick with tclunit as tunit is as name already taken:
+  http://docs.tinyos.net/tinywiki/index.php/TUnit
+* clarify license with Bob
