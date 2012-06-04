@@ -12,3 +12,24 @@ Notes to self:
 * stick with tclunit as tunit is as name already taken:
   http://docs.tinyos.net/tinywiki/index.php/TUnit
 * clarify license with Bob
+
+Analysis of certain parts on tcltest 2.3.4
+
+* test case output goes into tcltest::outData and tcltest::errData,
+  see tcltest::Replace::puts and tcltest::Eval
+
+* original Tcl ::puts resides as tcltest::Replace::Puts
+
+* consider timing a test case to not be around the [test] invocation, as there
+  is a lot of magic in this command
+  * idea: prepend the -setup and append the -cleanup code - they are uplevel'd
+    1, however
+  * or wrap tcltest::RunTest if only the body should be timed
+  * another problem to consider is if [singleProcess] is false, then the tests
+    will run in a second interpreter which explicitly starts the test file
+
+* to capture the actual test result or messages, there is no way around
+  wrapping puts, capturing the outputChannel, or a complete rewrite of the
+  test command
+  * filtering the outputChannel with stack channels is probably the best way,
+    emitting sax events along the way
