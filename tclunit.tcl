@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/usr/bin/env wish
 #
 #  tclunit
 #
@@ -43,15 +43,17 @@
 #-----------------------------------------------------------
 
 
-# restart using wish \
-exec wish "$0" "$@"
+package require Tk 8.5
+package require Ttk
 
 
-package require tile
-
+namespace eval tclunit {
+    variable cto	 ;# Capturing Test Output array
+    variable testResults ;# results array
+}
 
 #-----------------------------------------------------------
-#  init_for_tests
+#  tclunit::init_for_tests
 #
 #  Description:
 #    Initializes variables and GUI for running test suite.
@@ -65,14 +67,17 @@ package require tile
 #    Cleans out GUI display
 #
 #-----------------------------------------------------------
-proc init_for_tests {} {
+proc tclunit::init_for_tests {} {
+    variable cto
+    variable testResults
+
     # Run tests with verbose options
     #   so we can parse the output
     set ::env(TCLTEST_OPTIONS) "-verbose {body pass skip start error}"
 
     #  Initialize Capturing Test Output or "cto" array
-    array unset ::cto
-    array set ::cto {
+    array unset cto
+    array set cto {
 	capturing 0
 	filename ""
       passed 0
@@ -87,7 +92,7 @@ proc init_for_tests {} {
     }
 
     #  Initialize results array
-    array unset ::testResults
+    array unset testResults
 
     #  Initialize GUI, basically by deleting contents
     $::widget(txt) delete 1.0 end
@@ -97,7 +102,7 @@ proc init_for_tests {} {
 }
 
 #-----------------------------------------------------------
-#  run_all_tests
+#  tclunit::run_all_tests
 #
 #  Description:
 #    Creates a test script for running
@@ -109,7 +114,7 @@ proc init_for_tests {} {
 #  Side Effects:
 #    runs all the tests in the directory
 #-----------------------------------------------------------
-proc run_all_tests {} {
+proc tclunit::run_all_tests {} {
     init_for_tests
     set testScript { 
 	package require tcltest
@@ -120,7 +125,7 @@ proc run_all_tests {} {
 }
 
 #-----------------------------------------------------------
-#  run_test_file
+#  tclunit::run_test_file
 #
 #  Description:
 #    Creates a test script for running
@@ -131,7 +136,7 @@ proc run_all_tests {} {
 #  Side effects:
 #    runs the test file
 #-----------------------------------------------------------
-proc run_test_file {testfile} {
+proc tclunit::run_test_file {testfile} {
     init_for_tests
     set testScript { 
 	source $testfile
@@ -143,7 +148,7 @@ proc run_test_file {testfile} {
 }
 
 #-----------------------------------------------------------
-#  run_tests
+#  tclunit::run_tests
 #
 #  Description:
 #    Run tclsh and feed it the test script written by
@@ -162,7 +167,7 @@ proc run_test_file {testfile} {
 #    defines fileevent to parse the output
 #    and hangs until the parser notifies us.
 #-----------------------------------------------------------
-proc run_tests { testScript } {
+proc tclunit::run_tests { testScript } {
 
     #  Set timers
     set ::started_tests [clock clicks -milliseconds]
@@ -171,7 +176,7 @@ proc run_tests { testScript } {
     #  Exec a tcl shell to run the scripts
     set ::pipe [open "|tclsh" w+]
     fconfigure $::pipe -blocking 0 -buffering line
-    fileevent $::pipe readable [list capture_test_output $::pipe]
+    fileevent $::pipe readable [namespace code [list capture_test_output $::pipe]]
 
     #  Tell the shell what to do
     puts $::pipe $testScript
@@ -185,7 +190,7 @@ proc run_tests { testScript } {
 }
 
 #-----------------------------------------------------------
-#  capture_test_output
+#  tclunit::capture_test_output
 #
 #  Description:
 #    Parses the tcltest output stream, and decides
@@ -202,7 +207,8 @@ proc run_tests { testScript } {
 #  Side Effects:
 #    none
 #-----------------------------------------------------------
-proc capture_test_output {chan} {
+proc tclunit::capture_test_output {chan} {
+    variable cto
 
     if {[eof $chan]} {
 	# notify [run_tests] that we've completed
@@ -215,7 +221,7 @@ proc capture_test_output {chan} {
     gets $chan line
 
     #  If we're saving up test results...
-    if { $::cto(capturing) } {
+    if { $cto(capturing) } {
 	test_failed_continue $line
 	return
     }
@@ -237,7 +243,7 @@ proc capture_test_output {chan} {
 }
 
 #-----------------------------------------------------------
-#  test_skipped
+#  tclunit::test_skipped
 #
 #  Description:
 #    Count the test as skipped.
@@ -249,22 +255,24 @@ proc capture_test_output {chan} {
 #  Side Effects:
 #    changes the test results variables and the GUI
 #-----------------------------------------------------------
-proc test_skipped {line} {
+proc tclunit::test_skipped {line} {
+    variable cto
+    variable testResults
 
     incr_test_counter "skipped"
 
     # update the GUI
     scan $line "%s %s" junk testName
-    set id [$::widget(tv) insert $::cto(filename) end \
+    set id [$::widget(tv) insert $cto(filename) end \
             -text $testName -image skippedIcon]
     update idletasks
 
     #  Save a text string for display
-    set ::testResults($id) $line
+    set testResults($id) $line
 }
 
 #-----------------------------------------------------------
-#  test_started
+#  tclunit::test_started
 #
 #  Description:
 #    Parse the test name from the line, and
@@ -275,15 +283,17 @@ proc test_skipped {line} {
 #  Side Effects:
 #    changes the capture test output (cto) variables
 #-----------------------------------------------------------
-proc test_started {line} {
+proc tclunit::test_started {line} {
+    variable cto
+
     scan $line "---- %s start" testName
-    set ::cto(testName) $testName
-    set ::cto(result) ""
-    set ::cto(capturing) 0
+    set cto(testName) $testName
+    set cto(result) ""
+    set cto(capturing) 0
 }
 
 #-----------------------------------------------------------
-#  test_passed
+#  tclunit::test_passed
 #
 #  Description:
 #    Count the test as passed.
@@ -294,21 +304,23 @@ proc test_started {line} {
 #  Side Effects:
 #    changes the capture test output (cto) variables
 #-----------------------------------------------------------
-proc test_passed {line} {
+proc tclunit::test_passed {line} {
+    variable cto
+    variable testResults
 
     incr_test_counter "passed"
 
     #  update the GUI
-    set id [$::widget(tv) insert $::cto(filename) end \
-		-text $::cto(testName) -image passedIcon]
+    set id [$::widget(tv) insert $cto(filename) end \
+		-text $cto(testName) -image passedIcon]
     update idletasks
 
     #  Save a text string for display
-    set ::testResults($id) PASSED
+    set testResults($id) PASSED
 }
 
 #-----------------------------------------------------------
-#  test_failed
+#  tclunit::test_failed
 #
 #  Description:
 #    Count the test as failed.
@@ -320,17 +332,18 @@ proc test_passed {line} {
 #  Side Effects:
 #    changes the capture test output (cto) variables
 #-----------------------------------------------------------
-proc test_failed {line} {
+proc tclunit::test_failed {line} {
+    variable cto
 
     incr_test_counter "failed"
 
     #  Start capturing failure results
-    set ::cto(capturing) 1
-    set ::cto(result) $line\n
+    set cto(capturing) 1
+    set cto(result) $line\n
 }
 
 #-----------------------------------------------------------
-#  test_failed_continue
+#  tclunit::test_failed_continue
 #
 #  Description:
 #    Continue capturing failed test output, appending
@@ -351,30 +364,33 @@ proc test_failed {line} {
 #    changes the capture test output (cto) variables
 #    and updates the GUI.
 #-----------------------------------------------------------
-proc test_failed_continue {line} {
-    append ::cto(result) "$line"
+proc tclunit::test_failed_continue {line} {
+    variable cto
+    variable testResults
+
+    append cto(result) "$line"
     if { ! [string match "*Result should have been*" $line] } {
-	append ::cto(result) "\n"
+	append cto(result) "\n"
     }
 
     #  Is this the last line in the failure log?
-    if { $line eq "==== $::cto(testName) FAILED" } {
-	set ::cto(capturing) 0
+    if { $line eq "==== $cto(testName) FAILED" } {
+	set cto(capturing) 0
 
 	#  Add the test to the gui
-	set id [$::widget(tv) insert $::cto(filename) end \
-		    -text $::cto(testName) -image failedIcon]
-      $::widget(tv) item $::cto(filename) -image failedIcon
+	set id [$::widget(tv) insert $cto(filename) end \
+		    -text $cto(testName) -image failedIcon]
+      $::widget(tv) item $cto(filename) -image failedIcon
       $::widget(ind) configure -background red -text "TEST FAILURES"
 	update idletasks
 
 	#  Save a text string for display
-	set ::testResults($id) $::cto(result)
+	set testResults($id) $cto(result)
     }
 }
 
 #-----------------------------------------------------------
-#  test_file_start
+#  tclunit::test_file_start
 #
 #  Description:
 #    Initializes the capture test output (cto) variables
@@ -386,20 +402,22 @@ proc test_failed_continue {line} {
 #    changes the capture test output (cto) variables
 #    and the GUI
 #-----------------------------------------------------------
-proc test_file_start {filename} {
+proc tclunit::test_file_start {filename} {
+    variable cto
+    variable testResults
 
     #  Save the filename (which is the only thing on the line)
-    lappend ::cto(filenames) $filename
-    set ::cto(filename) $filename
+    lappend cto(filenames) $filename
+    set cto(filename) $filename
 
     #  Initialize the counters
-    set ::cto(passed) 0
-    set ::cto(skipped) 0
-    set ::cto(failed) 0
+    set cto(passed) 0
+    set cto(skipped) 0
+    set cto(failed) 0
 
     #  Initialize test results, so users see something when
     #  the filename is selected in the treeview
-    set ::testResults($filename) ""
+    set testResults($filename) ""
 
     #  Add this filename to the GUI
     $::widget(tv) insert {} end -id $filename \
@@ -409,7 +427,7 @@ proc test_file_start {filename} {
 
 
 #-----------------------------------------------------------
-#  incr_test_counter
+#  tclunit::incr_test_counter
 #
 #  Description:
 #    Counts the test by incrementing the appropriate
@@ -424,24 +442,26 @@ proc test_file_start {filename} {
 #     changes the capture test output (cto) variables
 #     and updates the GUI
 #-----------------------------------------------------------
-proc incr_test_counter {resultType} {
+proc tclunit::incr_test_counter {resultType} {
+    variable cto
+    variable testResults
 
-    incr ::cto($resultType)
-    incr ::cto(total$resultType)
+    incr cto($resultType)
+    incr cto(total$resultType)
 
     #  Update the summary line
-    set total [expr {$::cto(passed) + $::cto(skipped) + $::cto(failed)}]
-    set ::cto(statusLine) \
+    set total [expr {$cto(passed) + $cto(skipped) + $cto(failed)}]
+    set cto(statusLine) \
             [format "%-20s:  Total %-5d    Passed %-5d    Skipped %-5d    Failed %d-5" \
-              $::cto(filename) $total $::cto(passed) $::cto(skipped) $::cto(failed)]
+              $cto(filename) $total $cto(passed) $cto(skipped) $cto(failed)]
 
     #  Copy summary to this test file's results
-    set ::testResults($::cto(filename)) $::cto(statusLine)
+    set testResults($cto(filename)) $cto(statusLine)
 }
 
 
 #-----------------------------------------------------------
-#  build_gui
+#  tclunit::build_gui
 #
 #  Description:
 #    Builds the GUI main window using tile widgets.
@@ -460,8 +480,8 @@ proc incr_test_counter {resultType} {
 #    widgets that are used throughout the application.
 #-----------------------------------------------------------
 
-proc build_gui {} {
-
+proc tclunit::build_gui {} {
+    variable cto
 
     #  Select a test file or "run all tests"
     #  in a specific directory
@@ -469,12 +489,12 @@ proc build_gui {} {
     set frad [ttk::radiobutton $ff.filecheck -text "Test File" \
                     -variable ::runAllTests -value 0]
     set fent [ttk::entry $ff.filentry -textvariable ::testFile]
-    set fbut [ttk::button $ff.filebtn -text "Browse..." -command browseFile]
+    set fbut [ttk::button $ff.filebtn -text "Browse..." -command [namespace code browseFile]]
 
     set arad [ttk::radiobutton $ff.allcheck -text "Run All Tests" \
                     -variable ::runAllTests -value 1]
     set aent [ttk::entry $ff.allentry -textvariable ::testDirectory]
-    set abut [ttk::button $ff.allbtn -text "Choose Dir..." -command browseDir]
+    set abut [ttk::button $ff.allbtn -text "Choose Dir..." -command [namespace code browseDir]]
 
     grid $frad $fent $fbut -sticky ew -padx 4 -pady 4
     grid $arad $aent $abut -sticky ew -padx 4 -pady 4
@@ -495,7 +515,7 @@ proc build_gui {} {
     grid    rowconfigure $tvf 0 -weight 1
 
     #  set treeview selection action
-    bind $tv <<TreeviewSelect>> {gui_treeview_select}
+    bind $tv <<TreeviewSelect>> [namespace code gui_treeview_select]
 
     $pw add $tvf
 
@@ -504,8 +524,8 @@ proc build_gui {} {
     set bf [ttk::frame $pw.bf]
 
     #  buttons to run/stop tests, color indicator, and text
-    set run  [ttk::button $bf.run  -text "Run"  -command gui_run_tests]
-    set stop [ttk::button $bf.stop -text "Stop" -command gui_stop_tests -state disabled]
+    set run  [ttk::button $bf.run  -text "Run"  -command [namespace code gui_run_tests]]
+    set stop [ttk::button $bf.stop -text "Stop" -command [namespace code gui_stop_tests] -state disabled]
     set ind [label $bf.indicator -text "" -background green]
     set txt [text $bf.text]
 
@@ -518,7 +538,7 @@ proc build_gui {} {
     $pw add $bf
 
     #  add a status line
-    set statline [ttk::label .statusLine -textvariable ::cto(statusLine)] 
+    set statline [ttk::label .statusLine -textvariable [namespace which -variable cto(statusLine)]]
 
 
     #  Assemble the main window parts
@@ -574,7 +594,7 @@ proc build_gui {} {
 }
 
 #-----------------------------------------------------------
-#  gui_run_tests
+#  tclunit::gui_run_tests
 #
 #  Description:
 #    Called by the "Run" button, this proc decides
@@ -587,7 +607,8 @@ proc build_gui {} {
 #  Side Effects
 #    Pretty much everything happens.
 #-----------------------------------------------------------
-proc gui_run_tests {} {
+proc tclunit::gui_run_tests {} {
+    variable cto
 
     #  enable/disable the buttons
     $::widget(run)  configure -state disabled
@@ -606,9 +627,9 @@ proc gui_run_tests {} {
     }
 
     #  look at final statistics
-    set passed $::cto(totalpassed)
-    set skipped $::cto(totalskipped)
-    set failed $::cto(totalfailed)
+    set passed $cto(totalpassed)
+    set skipped $cto(totalskipped)
+    set failed $cto(totalfailed)
     set total [expr {$passed + $skipped + $failed}]
 
 
@@ -617,10 +638,10 @@ proc gui_run_tests {} {
     set velocity [expr {1000.0 * $total / $time_in_ms}]
 
     # update GUI indicator
-    set ::cto(statusLine) \
+    set cto(statusLine) \
         [format "Total %-5d Passed %-5d Skipped %-5d Failed %-5d    (%.1f tests/second)" \
                         $total $passed $skipped $failed $velocity]
-    $::widget(ind) configure -text $::cto(statusLine)
+    $::widget(ind) configure -text $cto(statusLine)
 
     #  enable/disable the buttons
     $::widget(run)  configure -state normal
@@ -628,7 +649,7 @@ proc gui_run_tests {} {
 }
 
 #-----------------------------------------------------------
-#  gui_stop_tests
+#  tclunit::gui_stop_tests
 #
 #  Description:
 #    Called by the "Stop" button, this procedure terminates
@@ -641,14 +662,14 @@ proc gui_run_tests {} {
 #  Side Effects
 #    Pretty much everything stops.
 #-----------------------------------------------------------
-proc gui_stop_tests {} {
+proc tclunit::gui_stop_tests {} {
     close $::pipe
     set ::finished_tests 1
 }
 
 
 #-----------------------------------------------------------
-#  gui_treeview_select
+#  tclunit::gui_treeview_select
 #
 #  Description:
 #    Called by the <<TreeviewSelect>> event binding,
@@ -661,7 +682,8 @@ proc gui_stop_tests {} {
 #  Side Effects:
 #    Changes text widget contents
 #-----------------------------------------------------------
-proc gui_treeview_select {} {
+proc tclunit::gui_treeview_select {} {
+    variable testResults
 
     # get selection from treeview
     set id [$::widget(tv) selection]
@@ -669,11 +691,11 @@ proc gui_treeview_select {} {
     # display text
     set txt $::widget(txt)
     $txt delete 1.0 end
-    $txt insert end $::testResults($id)
+    $txt insert end $testResults($id)
 }
 
 #-----------------------------------------------------------
-#  browseFile
+#  tclunit::browseFile
 #
 #  Description:
 #    Called by the file "Browse..." button, 
@@ -686,7 +708,7 @@ proc gui_treeview_select {} {
 #  Side Effects
 #    Sets testFile and runAllTests global variables
 #-----------------------------------------------------------
-proc browseFile {} {
+proc tclunit::browseFile {} {
     set dirname [file dirname $::testFile]
     if { $dirname eq "" } {
      
@@ -706,7 +728,7 @@ proc browseFile {} {
 }
 
 #-----------------------------------------------------------
-#  browseDir
+#  tclunit::browseDir
 #
 #  Description:
 #    Called by the directory "Select Dir..." button,
@@ -718,7 +740,7 @@ proc browseFile {} {
 #  Side Effects:
 #    Sets the global variables testDirectory and runAllTests
 #-----------------------------------------------------------
-proc browseDir {} {
+proc tclunit::browseDir {} {
     set dirname [tk_chooseDirectory -initialdir $::testDirectory]
 
     if { $dirname ne "" } {
@@ -728,7 +750,7 @@ proc browseDir {} {
 }
 
 #-----------------------------------------------------------
-#  main
+#  tclunit::main
 #
 #  Description:
 #    Main program, parses command line arguments to
@@ -741,7 +763,7 @@ proc browseDir {} {
 #  Side Effects:
 #    runs the program
 #-----------------------------------------------------------
-proc main {args} {
+proc tclunit::main {args} {
 
     #  process command line arguments
     set ::testFile ""
@@ -764,5 +786,5 @@ proc main {args} {
 
 }
 
-main $argv
+tclunit::main $argv
 
