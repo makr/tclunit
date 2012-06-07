@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <buildpath>
-	<buildpathentry excluding=".git/" kind="src" path=""/>
-	<buildpathentry kind="con" path="org.eclipse.dltk.launching.INTERPRETER_CONTAINER">
+	<buildpathentry kind="src" path="tclunit"/>
+	<buildpathentry kind="con" path="org.eclipse.dltk.launching.INTERPRETER_CONTAINER/org.eclipse.dltk.internal.debug.ui.launcher.GenericTclInstallType/tclsh 8.5">
 		<attributes>
 			<attribute name="user_dependencies" value=""/>
 			<attribute name="auto_dependencies" value="Tk|Tcl"/>

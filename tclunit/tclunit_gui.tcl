@@ -1,3 +1,4 @@
+#!/usr/bin/env wish
 #-----------------------------------------------------------
 #
 #  tclunit_gui
@@ -7,7 +8,7 @@
 #  that makes so many developers happy.
 #
 #  Synopsis:
-#     tclunit [testFile | testDirectory]
+#     tclunit_gui [testFile | testDirectory]
 #
 #  Tclunit will execute a single test file, or run
 #  all tests in a directory using tcltest's runAllTests
@@ -43,17 +44,17 @@
 #-----------------------------------------------------------
 # GUI components for tclunit
 
-
 package require Tk 8.5
 package require Ttk
+package require tclunit
 
-
-namespace eval tclunit {
+namespace eval tclunit_gui {
+    namespace path [list [namespace current] ::tclunit ::]
     variable widget	;# Array with GUI components
 }
 
 #-----------------------------------------------------------
-#  tclunit::initgui_for_tests
+#  tclunit_gui::initgui_for_tests
 #
 #  Description:
 #    Initializes GUI for running test suite.
@@ -65,7 +66,7 @@ namespace eval tclunit {
 #    Cleans out GUI display
 #
 #-----------------------------------------------------------
-proc tclunit::initgui_for_tests {} {
+proc tclunit_gui::initgui_for_tests {} {
     variable widget
 
     #  Initialize GUI, basically by deleting contents
@@ -76,7 +77,7 @@ proc tclunit::initgui_for_tests {} {
 }
 
 #-----------------------------------------------------------
-#  tclunit::show_test_skipped
+#  tclunit_gui::show_test_skipped
 #
 #  Description:
 #    Add the test to the GUI.
@@ -88,18 +89,18 @@ proc tclunit::initgui_for_tests {} {
 #  Side Effects:
 #    changes the GUI
 #-----------------------------------------------------------
-proc tclunit::show_test_skipped {filename testName} {
+proc tclunit_gui::show_test_skipped {filename testName} {
     variable widget
 
     # update the GUI
     set id [$widget(tv) insert $filename end \
-            -text $testName -image skippedIcon]
+	-text $testName -image tclunit_gui::skippedIcon]
     update idletasks
     return $id
 }
 
 #-----------------------------------------------------------
-#  tclunit::show_test_passed
+#  tclunit_gui::show_test_passed
 #
 #  Description:
 #    Add the test to the GUI.
@@ -111,18 +112,18 @@ proc tclunit::show_test_skipped {filename testName} {
 #  Side Effects:
 #    changes the GUI
 #-----------------------------------------------------------
-proc tclunit::show_test_passed {filename testName} {
+proc tclunit_gui::show_test_passed {filename testName} {
     variable widget
 
     #  update the GUI
     set id [$widget(tv) insert $filename end \
-		-text $testName -image passedIcon]
+	-text $testName -image tclunit_gui::passedIcon]
     update idletasks
     return $id
 }
 
 #-----------------------------------------------------------
-#  tclunit::show_test_failed
+#  tclunit_gui::show_test_failed
 #
 #  Description:
 #    Add this test to the GUI.
@@ -134,20 +135,20 @@ proc tclunit::show_test_passed {filename testName} {
 #  Side Effects:
 #    updates the GUI.
 #-----------------------------------------------------------
-proc tclunit::show_test_failed {filename testName} {
+proc tclunit_gui::show_test_failed {filename testName} {
     variable widget
 
     #  Add the test to the gui
     set id [$widget(tv) insert $filename end \
-		    -text $testName -image failedIcon]
-    $widget(tv) item $filename -image failedIcon
+	-text $testName -image tclunit_gui::failedIcon]
+    $widget(tv) item $filename -image tclunit_gui::failedIcon
     $widget(ind) configure -background red -text "TEST FAILURES"
     update idletasks
     return $id
 }
 
 #-----------------------------------------------------------
-#  tclunit::show_test_file_start
+#  tclunit_gui::show_test_file_start
 #
 #  Description:
 #    Adds the file to the GUI.
@@ -158,17 +159,17 @@ proc tclunit::show_test_failed {filename testName} {
 #  Side Effects:
 #    changes the GUI
 #-----------------------------------------------------------
-proc tclunit::show_test_file_start {filename} {
+proc tclunit_gui::show_test_file_start {filename} {
     variable widget
 
     #  Add this filename to the GUI
     $widget(tv) insert {} end -id $filename \
-	-text $filename -open false -image passedIcon
+	-text $filename -open false -image tclunit_gui::passedIcon
     update idletasks
 }
 
 #-----------------------------------------------------------
-#  tclunit::build_gui
+#  tclunit_gui::build_gui
 #
 #  Description:
 #    Builds the GUI main window using tile widgets.
@@ -187,36 +188,36 @@ proc tclunit::show_test_file_start {filename} {
 #    widgets that are used throughout the application.
 #-----------------------------------------------------------
 
-proc tclunit::build_gui {} {
+proc tclunit_gui::build_gui {rtArray statusVariable} {
     variable widget
-    variable cto ;# FIXME see below
 
     #  Select a test file or "run all tests"
     #  in a specific directory
     set ff [ttk::frame .fileframe]
     set frad [ttk::radiobutton $ff.filecheck -text "Test File" \
-                    -variable ::runAllTests -value 0] ;# FIXME $::runAllTests
-    set fent [ttk::entry $ff.filentry -textvariable ::testFile] ;# FIXME $::testFile
-    set fbut [ttk::button $ff.filebtn -text "Browse..." -command [namespace code browseFile]]
+	-variable ${rtArray}(runAllTests) -value 0]
+    set fent [ttk::entry $ff.filentry -textvariable ${rtArray}(testFile)]
+    set fbut [ttk::button $ff.filebtn -text "Browse..." \
+	-command [namespace code browseFile]]
 
     set arad [ttk::radiobutton $ff.allcheck -text "Run All Tests" \
-                    -variable ::runAllTests -value 1] ;# FIXME $::runAllTests
-    set aent [ttk::entry $ff.allentry -textvariable ::testDirectory] ;# FIXME $::testDirectory
-    set abut [ttk::button $ff.allbtn -text "Choose Dir..." -command [namespace code browseDir]]
+	-variable ${rtArray}(runAllTests) -value 1]
+    set aent [ttk::entry $ff.allentry -textvariable ${rtArray}(testDirectory)]
+    set abut [ttk::button $ff.allbtn -text "Choose Dir..." \
+	-command [namespace code browseDir]]
 
     grid $frad $fent $fbut -sticky ew -padx 4 -pady 4
     grid $arad $aent $abut -sticky ew -padx 4 -pady 4
     grid columnconfigure $ff 1 -weight 1
 
-
     # Paned window
-    set pw [ttk::paned .pw -orient horizontal] ;# FIXME deprecated!
+    set pw [ttk::paned .pw -orient horizontal] ;# FIXME deprecated! use ::ttk::panedwindow instead
 
     # tree view of tests run
     set tvf [ttk::frame $pw.tvf]
     set tv [ttk::treeview $tvf.tv -yscrollcommand [list $tvf.vsb set]]
     set sb [ttk::scrollbar $tvf.vsb -orient vertical \
-		-command [list $tvf.tv yview]]
+	-command [list $tvf.tv yview]]
 
     grid $tv $sb -sticky news -padx 4 -pady 4
     grid columnconfigure $tvf 0 -weight 1
@@ -227,14 +228,15 @@ proc tclunit::build_gui {} {
 
     $pw add $tvf
 
-
     #  frame to hold "run" button and test results text
     set bf [ttk::frame $pw.bf]
 
     #  buttons to run/stop tests, color indicator, and text
-    set run  [ttk::button $bf.run  -text "Run"  -command [namespace code gui_run_tests]]
-    set stop [ttk::button $bf.stop -text "Stop" -command [namespace code gui_stop_tests] -state disabled]
-    set ind [label $bf.indicator -text "" -background green]
+    set run  [ttk::button $bf.run  -text "Run" \
+	-command [namespace code gui_run_tests]]
+    set stop [ttk::button $bf.stop -text "Stop" \
+	-command [namespace code gui_stop_tests] -state disabled]
+    set ind [label $bf.indicator -text "" -background green] ;# TODO create styles instead
     set txt [text $bf.text]
 
     grid $run  $ind   -sticky news -padx 4 -pady 4
@@ -246,8 +248,7 @@ proc tclunit::build_gui {} {
     $pw add $bf
 
     #  add a status line
-    set statline [ttk::label .statusLine -textvariable [namespace which -variable cto(statusLine)]] ;# FIXME link to cto array
-
+    set statline [ttk::label .statusLine -textvariable $statusVariable]
 
     #  Assemble the main window parts
     grid $ff -sticky ew
@@ -257,7 +258,6 @@ proc tclunit::build_gui {} {
     grid columnconfigure . 0 -weight 1
     grid    rowconfigure . 1 -weight 1
 
-
     # save widget names
     set widget(run)  $run
     set widget(stop) $stop
@@ -265,11 +265,10 @@ proc tclunit::build_gui {} {
     set widget(txt)  $txt
     set widget(ind)  $ind
 
-
     #  Define icons for the tree view
 
     #  actcheck16 from crystal icons
-    image create photo passedIcon -data {
+    image create photo tclunit_gui::passedIcon -data {
        R0lGODlhEAAQAIIAAPwCBMT+xATCBASCBARCBAQCBEQCBAAAACH5BAEAAAAA
        LAAAAAAQABAAAAM2CLrc/itAF8RkdVyVye4FpzUgJwijORCGUhDDOZbLG6Nd
       2xjwibIQ2y80sRGIl4IBuWk6Af4EACH+aENyZWF0ZWQgYnkgQk1QVG9HSUYg
@@ -278,7 +277,7 @@ proc tclunit::build_gui {} {
     }
 
     #  actcross16 from crystal icons
-    image create photo failedIcon -data {
+    image create photo tclunit_gui::failedIcon -data {
        R0lGODlhEAAQAIIAAASC/PwCBMQCBEQCBIQCBAAAAAAAAAAAACH5BAEAAAAA
        LAAAAAAQABAAAAMuCLrc/hCGFyYLQjQsquLDQ2ScEEJjZkYfyQKlJa2j7AQn
        MM7NfucLze1FLD78CQAh/mhDcmVhdGVkIGJ5IEJNUFRvR0lGIFBybyB2ZXJz
@@ -287,7 +286,7 @@ proc tclunit::build_gui {} {
     }
 
     #  services-16 from crystal icons
-    image create photo skippedIcon -data {
+    image create photo tclunit_gui::skippedIcon -data {
        R0lGODlhEAAQAIUAAPwCBPy2BPSqBPSeBPS6HPSyDPSmBPzSXPzGNOyOBPSy
        FPzujPzaPOyWBPy+DPyyDPy+LPzKTPzmZPzeTPSaFOSGBNxuBNxmBPzWVPzq
        dPzmXPzePPzaRPzeRPS2FNxqBPzWNOyeBPTCLPzOJNxyBPzGHNReBOR6BOR2
@@ -302,7 +301,7 @@ proc tclunit::build_gui {} {
 }
 
 #-----------------------------------------------------------
-#  tclunit::gui_run_tests
+#  tclunit_gui::gui_run_tests
 #
 #  Description:
 #    Called by the "Run" button, this proc decides
@@ -315,7 +314,7 @@ proc tclunit::build_gui {} {
 #  Side Effects
 #    Pretty much everything happens.
 #-----------------------------------------------------------
-proc tclunit::gui_run_tests {} {
+proc tclunit_gui::gui_run_tests {} {
     variable widget
     variable cto
 
@@ -335,7 +334,7 @@ proc tclunit::gui_run_tests {} {
 }
 
 #-----------------------------------------------------------
-#  tclunit::gui_stop_tests
+#  tclunit_gui::gui_stop_tests
 #
 #  Description:
 #    Called by the "Stop" button.  It also changes the enabled
@@ -347,13 +346,12 @@ proc tclunit::gui_run_tests {} {
 #    Pretty much everything stops.
 #-----------------------------------------------------------
 # FIXME backref into main module
-proc tclunit::gui_stop_tests {} {
+proc tclunit_gui::gui_stop_tests {} {
     stop_tests
 }
 
-
 #-----------------------------------------------------------
-#  tclunit::gui_treeview_select
+#  tclunit_gui::gui_treeview_select
 #
 #  Description:
 #    Called by the <<TreeviewSelect>> event binding,
@@ -366,7 +364,7 @@ proc tclunit::gui_stop_tests {} {
 #  Side Effects:
 #    Changes text widget contents
 #-----------------------------------------------------------
-proc tclunit::gui_treeview_select {} {
+proc tclunit_gui::gui_treeview_select {} {
     variable widget
     variable testResults
 
@@ -380,10 +378,10 @@ proc tclunit::gui_treeview_select {} {
 }
 
 #-----------------------------------------------------------
-#  tclunit::browseFile
+#  tclunit_gui::browseFile
 #
 #  Description:
-#    Called by the file "Browse..." button, 
+#    Called by the file "Browse..." button,
 #    this procedure opens tk_getOpenFile
 #    and save the selected test file name to
 #    a global variable.
@@ -394,26 +392,26 @@ proc tclunit::gui_treeview_select {} {
 #    Sets testFile and runAllTests global variables
 #-----------------------------------------------------------
 # FIXME $::testFile and $::runAllTests ref
-proc tclunit::browseFile {} {
+proc tclunit_gui::browseFile {} {
     set dirname [file dirname $::testFile]
     if { $dirname eq "" } {
-        set dirname [pwd]
+	set dirname [pwd]
     }
     set filetypes {
-        {{Test Files} {.test .tcl}} 
+        {{Test Files} {.test .tcl}}
         {{All Files}   *          }
     }
 
     set filename [tk_getOpenFile -initialdir $dirname -filetypes $filetypes]
     if { $filename ne "" } {
-        cd [file dirname $filename]
-        set ::testFile [file tail $filename]
-        set ::runAllTests 0
+	cd [file dirname $filename]
+	set ::testFile [file tail $filename]
+	set ::runAllTests 0
     }
 }
 
 #-----------------------------------------------------------
-#  tclunit::browseDir
+#  tclunit_gui::browseDir
 #
 #  Description:
 #    Called by the directory "Select Dir..." button,
@@ -426,11 +424,53 @@ proc tclunit::browseFile {} {
 #    Sets the global variables testDirectory and runAllTests
 #-----------------------------------------------------------
 # FIXME $::testDirectory and $::runAllTests ref
-proc tclunit::browseDir {} {
+proc tclunit_gui::browseDir {} {
     set dirname [tk_chooseDirectory -initialdir $::testDirectory]
 
     if { $dirname ne "" } {
-        set ::testDirectory $dirname
-        set ::runAllTests 1
+	set ::testDirectory $dirname
+	set ::runAllTests 1
     }
+}
+
+
+#-----------------------------------------------------------
+#  tclunit_gui::main
+#
+#  Description:
+#    Main program, parses command line arguments to
+#    figure out if the user specified either a directory
+#    or a test file.  It then loads the gui script and builds
+#    the GUI.
+#
+#  Arguments:
+#    args - command line arguments (argv) the first of
+#           which might be a file name
+#  Side Effects:
+#    runs the program
+#-----------------------------------------------------------
+proc tclunit_gui::main {args} {
+
+    #  process command line arguments
+    set rt(testDirectory) [pwd]
+    set rt(withGUI) 1
+
+    if { [llength $args] > 0 } {
+	if { [file exists [lindex $args 0]] } {
+	    set filename [lindex $args 0]
+
+	    if { ! [file isdirectory $filename] } {
+		set rt(runAllTests) 0
+		set rt(testFile) $filename
+	    } else {
+		set rt(testDirectory) $filename
+	    }
+	}
+    }
+
+    build_gui [namespace which -variable rt] [namespace which -variable cto](statusLine)
+}
+
+if {[info exists argv]} {
+    tclunit_gui::main $argv
 }

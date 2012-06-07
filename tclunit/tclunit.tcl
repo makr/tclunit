@@ -1,4 +1,4 @@
-#!/usr/bin/env wish
+#-----------------------------------------------------------
 #
 #  tclunit
 #
@@ -42,13 +42,18 @@
 #
 #-----------------------------------------------------------
 
-
 package require Tcl 8.5
-
 
 namespace eval tclunit {
     variable cto	 ;# Capturing Test Output array
     variable testResults ;# results array
+
+    variable rt		 ;# Array with runtime configuration
+    set rt(withGUI)	  0	;# 1 = run as tclunit tkapp
+    set rt(testFile)	  ""
+    set rt(testDirectory) ""
+    set rt(runAllTests)	  1
+    set rt(interp)	  [info nameofexecutable]
 }
 
 #-----------------------------------------------------------
@@ -68,6 +73,7 @@ namespace eval tclunit {
 proc tclunit::init_for_tests {} {
     variable cto
     variable testResults
+    variable rt
 
     # Run tests with verbose options
     #   so we can parse the output
@@ -78,22 +84,22 @@ proc tclunit::init_for_tests {} {
     array set cto {
 	capturing 0
 	filename ""
-      passed 0
-      skipped 0
-      failed 0
-      totalpassed 0
-      totalskipped 0
-      totalfailed 0
+	passed 0
+	skipped 0
+	failed 0
+	totalpassed 0
+	totalskipped 0
+	totalfailed 0
 	testName ""
 	result ""
-      statusLine ""
+	statusLine ""
     }
 
     #  Initialize results array
     array unset testResults
 
     # Initialize GUI if available
-    if {$::GUI} {
+    if {$rt(withGUI)} {
 	initgui_for_tests
     }
 }
@@ -103,7 +109,7 @@ proc tclunit::init_for_tests {} {
 #
 #  Description:
 #    Creates a test script for running
-#    all tests in the current working 
+#    all tests in the current working
 #    directory.  Then runs the tests.
 #
 #  Arguments:
@@ -113,7 +119,7 @@ proc tclunit::init_for_tests {} {
 #-----------------------------------------------------------
 proc tclunit::run_all_tests {} {
     init_for_tests
-    set testScript { 
+    set testScript {
 	package require tcltest
 	tcltest::runAllTests
 	exit
@@ -135,7 +141,7 @@ proc tclunit::run_all_tests {} {
 #-----------------------------------------------------------
 proc tclunit::run_test_file {testfile} {
     init_for_tests
-    set testScript { 
+    set testScript {
 	source $testfile
 	exit
     }
@@ -165,25 +171,25 @@ proc tclunit::run_test_file {testfile} {
 #    and hangs until the parser notifies us.
 #-----------------------------------------------------------
 proc tclunit::do_run_tests { testScript } {
+    variable rt
 
     #  Set timers
-    set ::started_tests [clock clicks -milliseconds]
-    set ::finished_tests 0
+    set rt(started_tests) [clock milliseconds]
+    set rt(finished_tests) 0
 
     #  Exec a tcl shell to run the scripts
-    set ::pipe [open "|tclsh" w+]
-    fconfigure $::pipe -blocking 0 -buffering line
-    fileevent $::pipe readable [namespace code [list capture_test_output $::pipe]]
+    set rt(pipe) [open [format "|%s" $rt(interp)] w+]
+    fconfigure $rt(pipe) -blocking 0 -buffering line
+    fileevent $rt(pipe) readable [namespace code [list capture_test_output $rt(pipe)]]
 
     #  Tell the shell what to do
-    puts $::pipe $testScript
+    puts $rt(pipe) $testScript
 
     #  And wait for it to finish
-    vwait ::finished_tests
+    vwait [namespace which -variable rt](finished_tests)
 
     #  check the time
-    set ::finished_tests [clock clicks -milliseconds]
-
+    set rt(finished_tests) [clock milliseconds]
 }
 
 #-----------------------------------------------------------
@@ -191,7 +197,7 @@ proc tclunit::do_run_tests { testScript } {
 #
 #  Description:
 #    Parses the tcltest output stream, and decides
-#    if a line represents a pass, fail, skip, or 
+#    if a line represents a pass, fail, skip, or
 #    failure.  In case of failures, we expect more
 #    lines of test case results, so we capture those
 #    until a global flag is reset.
@@ -206,10 +212,11 @@ proc tclunit::do_run_tests { testScript } {
 #-----------------------------------------------------------
 proc tclunit::capture_test_output {chan} {
     variable cto
+    variable rt
 
     if {[eof $chan]} {
 	# notify [do_run_tests] that we've completed
-	set ::finished_tests 1
+	set rt(finished_tests) 1
 	close $chan
 	return
     }
@@ -228,7 +235,7 @@ proc tclunit::capture_test_output {chan} {
 	"++++ * PASSED"     {test_passed $line}
 	"==== * FAILED"     {test_failed $line}
 	"---- * start"      {test_started $line}
-      "++++ * SKIPPED: *" {test_skipped $line}
+	"++++ * SKIPPED: *" {test_skipped $line}
     }
 
     #  If the line is a file name
@@ -236,7 +243,6 @@ proc tclunit::capture_test_output {chan} {
     if { [file exists $line] } {
 	test_file_start $line
     }
-
 }
 
 #-----------------------------------------------------------
@@ -252,12 +258,13 @@ proc tclunit::capture_test_output {chan} {
 #    changes the test results variables
 #-----------------------------------------------------------
 proc tclunit::test_skipped {line} {
-    variable cto
-    variable testResults
+    variable rt
 
     incr_test_counter "skipped"
 
-    if {$::GUI} {
+    if {$rt(withGUI)} {
+	variable cto
+	variable testResults
 	# update the GUI
 	scan $line "%s %s" junk testName
 	set id [show_test_skipped $cto(filename) $testName]
@@ -300,12 +307,13 @@ proc tclunit::test_started {line} {
 #    changes the capture test output (cto) variables
 #-----------------------------------------------------------
 proc tclunit::test_passed {line} {
-    variable cto
-    variable testResults
+    variable rt
 
     incr_test_counter "passed"
 
-    if {$::GUI} {
+    if {$rt(withGUI)} {
+	variable cto
+	variable testResults
 	#  update the GUI
 	set id [show_test_passed $cto(filename) $cto(testName)]
 	#  Save a text string for display
@@ -358,8 +366,8 @@ proc tclunit::test_failed {line} {
 #    changes the capture test output (cto) variables
 #-----------------------------------------------------------
 proc tclunit::test_failed_continue {line} {
+    variable rt
     variable cto
-    variable testResults
 
     append cto(result) "$line"
     if { ! [string match "*Result should have been*" $line] } {
@@ -370,7 +378,8 @@ proc tclunit::test_failed_continue {line} {
     if { $line eq "==== $cto(testName) FAILED" } {
 	set cto(capturing) 0
 
-	if {$::GUI} {
+	if {$rt(withGUI)} {
+	    variable testResults
 	    #  Add the test to the gui
 	    set id [show_test_failed $cto(filename) $cto(testName)]
 	    #  Save a text string for display
@@ -393,6 +402,7 @@ proc tclunit::test_failed_continue {line} {
 #    changes the capture test output (cto) variables
 #-----------------------------------------------------------
 proc tclunit::test_file_start {filename} {
+    variable rt
     variable cto
     variable testResults
 
@@ -410,11 +420,10 @@ proc tclunit::test_file_start {filename} {
     set testResults($filename) ""
 
     #  Add this filename to the GUI
-    if {$::GUI} {
+    if {$rt(withGUI)} {
 	show_test_file_start $filename
     }
 }
-
 
 #-----------------------------------------------------------
 #  tclunit::incr_test_counter
@@ -439,13 +448,12 @@ proc tclunit::incr_test_counter {resultType} {
     #  Update the summary line
     set total [expr {$cto(passed) + $cto(skipped) + $cto(failed)}]
     set cto(statusLine) \
-            [format "%-20s:  Total %-5d    Passed %-5d    Skipped %-5d    Failed %d-5" \
-              $cto(filename) $total $cto(passed) $cto(skipped) $cto(failed)]
+	[format "%-20s:  Total %-5d    Passed %-5d    Skipped %-5d    Failed %d-5" \
+	$cto(filename) $total $cto(passed) $cto(skipped) $cto(failed)]
 
     #  Copy summary to this test file's results
     set testResults($cto(filename)) $cto(statusLine)
 }
-
 
 #-----------------------------------------------------------
 #  tclunit::run_tests
@@ -463,17 +471,18 @@ proc tclunit::incr_test_counter {resultType} {
 #-----------------------------------------------------------
 proc tclunit::run_tests {} {
     variable cto
+    variable rt
 
     #  run the tests
-    if { $::runAllTests } {
-      cd $::testDirectory
+    if { $rt(runAllTests) } {
+	cd $rt(testDirectory)
 	run_all_tests
     } else {
-      if { ! [file exists $::testFile] } {
-          browseFile ;# FIXME GUI code
-      }
-      cd [file dirname $::testFile]
-	run_test_file $::testFile
+	if { ! [file exists $rt(testFile)] } {
+	    browseFile ;# FIXME GUI code
+	}
+	cd [file dirname $rt(testFile)]
+	run_test_file $rt(testFile)
     }
 
     #  look at final statistics
@@ -482,15 +491,14 @@ proc tclunit::run_tests {} {
     set failed $cto(totalfailed)
     set total [expr {$passed + $skipped + $failed}]
 
-
     # Computing timing statistic
-    set time_in_ms [expr {$::finished_tests - $::started_tests}]
+    set time_in_ms [expr {$rt(finished_tests) - $rt(started_tests)}]
     set velocity [expr {1000.0 * $total / $time_in_ms}]
 
     # update GUI indicator
     set cto(statusLine) \
-        [format "Total %-5d Passed %-5d Skipped %-5d Failed %-5d    (%.1f tests/second)" \
-                        $total $passed $skipped $failed $velocity]
+	[format "Total %-5d Passed %-5d Skipped %-5d Failed %-5d    (%.1f tests/second)" \
+	$total $passed $skipped $failed $velocity]
 }
 
 #-----------------------------------------------------------
@@ -498,7 +506,7 @@ proc tclunit::run_tests {} {
 #
 #  Description:
 #    This procedure terminates
-#    the running test process by closing the pipe and 
+#    the running test process by closing the pipe and
 #    setting the global flag.
 #
 #  Arguments:
@@ -507,48 +515,10 @@ proc tclunit::run_tests {} {
 #    Pretty much everything stops.
 #-----------------------------------------------------------
 proc tclunit::stop_tests {} {
-    close $::pipe
-    set ::finished_tests 1
+    variable rt
+
+    close $rt(pipe)
+    set rt(finished_tests) 1
 }
 
-#-----------------------------------------------------------
-#  tclunit::main
-#
-#  Description:
-#    Main program, parses command line arguments to
-#    figure out if the user specified either a directory
-#    or a test file.  It then builds the gui.
-#
-#  Arguments:
-#    args - command line arguments (argv) the first of
-#           which might be a file name
-#  Side Effects:
-#    runs the program
-#-----------------------------------------------------------
-# FIXME inits GUI vars and the GUI itself
-proc tclunit::main {args} {
-
-    #  process command line arguments
-    set ::testFile ""
-    set ::testDirectory [pwd]
-    set ::runAllTests 1
-    if { [llength $args] > 0 } {
-	if { [file exists [lindex $args 0]] } {
-	    set filename [lindex $args 0]
-
-          if { ! [file isdirectory $filename] } {
-              set ::runAllTests 0
-              set ::testFile $filename
-          } else {
-              set ::testDirectory $filename
-          }
-	}
-    }
-
-    set ::GUI 1
-    build_gui
-
-}
-
-tclunit::main $argv
-
+package provide tclunit 1.1
