@@ -49,11 +49,12 @@ namespace eval tclunit {
     variable testResults ;# results array
 
     variable rt		 ;# Array with runtime configuration
-    set rt(withGUI)	  0	;# 1 = run as tclunit tkapp
     set rt(testFile)	  ""
     set rt(testDirectory) ""
     set rt(runAllTests)	  1
     set rt(interp)	  [info nameofexecutable]
+
+    set rt(withGUI) 0 ;# FIXME: wrong turn!!!
 }
 
 #-----------------------------------------------------------
@@ -77,6 +78,7 @@ proc tclunit::init_for_tests {} {
 
     # Run tests with verbose options
     #   so we can parse the output
+# TODO: filter existing options, provide possibility to add further options
     set ::env(TCLTEST_OPTIONS) "-verbose {body pass skip start error}"
 
     #  Initialize Capturing Test Output or "cto" array
@@ -448,7 +450,7 @@ proc tclunit::incr_test_counter {resultType} {
     #  Update the summary line
     set total [expr {$cto(passed) + $cto(skipped) + $cto(failed)}]
     set cto(statusLine) \
-	[format "%-20s:  Total %-5d    Passed %-5d    Skipped %-5d    Failed %d-5" \
+	[format "%-20s:  Total %-5d    Passed %-5d    Skipped %-5d    Failed %-5d" \
 	$cto(filename) $total $cto(passed) $cto(skipped) $cto(failed)]
 
     #  Copy summary to this test file's results
