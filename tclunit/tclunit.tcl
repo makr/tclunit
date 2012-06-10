@@ -46,6 +46,7 @@ package require Tcl 8.5
 
 namespace eval tclunit {
     variable cto	 ;# Capturing Test Output array
+# TODO: testResults is not used anywhere within this module -> convert to callback
     variable testResults ;# results array
 
     variable rt		 ;# Array with runtime configuration
@@ -231,6 +232,8 @@ proc tclunit::capture_test_output {chan} {
 	test_failed_continue $line
 	return
     }
+
+# TODO: also capture test properties, e.g. interpreter, test directory, etc.
 
     #  Check for start, pass and fail lines
     switch -glob -- $line {

@@ -1,12 +1,36 @@
 Refactoring Goals:
 
 1. separate GUI from function
-1.1. make tclunit event driven, i.e. let users register callbacks
+1.1. make tclunit event driven, i.e. let users register callbacks/scripts
 
 2. set functionality on top on tcltest, i.e. with interface and behavior
-   compatibility
+   compatibility (might not be necessary, depends on timing tests)
+2.1. check if timing on capturing events produces acceptable results
+2.2. do not produce timing information when converting existing tcltest log files
 
 3. dump results as TestNG compatible XML file
+3.1. see JUnit.xsd
+
+
+Synchronous API:
+tclunit::runTests path options
+tclunit::getResults
+
+Asynchronous API:
+tclunit::configure callbacks
+tclunit::startTests path options
+tclunit::stopTests
+
+Events for callbacks:
+<property> name value
+<suite> filename
+<skipped> testcase reason
+<start> testcase
+<passed> testcase ?time?
+<failed> testcase report ?time?
+<status> filename #passed #skipped #failed
+<total> #total #passed #skipped #failed ?#time?
+<error> filename report
 
 
 Notes to self:
@@ -34,3 +58,8 @@ Analysis of certain parts on tcltest 2.3.4
   test command
   * filtering the outputChannel with stack channels is probably the best way,
     emitting sax events along the way
+
+Project title for EuroTcl 2012:
+WiP: jUnit compatible XML reporting for tcltest
+or: Abusing a refactored tclunit to enable Jenkins statistics on tcltest
+output. 
