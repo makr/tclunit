@@ -1,7 +1,7 @@
 Refactoring Goals:
 
-1. separate GUI from function
-1.1. make tclunit event driven, i.e. let users register callbacks/scripts
+* separated GUI from function
+* users can register callbacks for various events
 
 2. set functionality on top on tcltest, i.e. with interface and behavior
    compatibility (might not be necessary, depends on timing tests)
@@ -29,8 +29,9 @@ Events for callbacks:
 <passed> testcase ?time?
 <failed> testcase report ?time?
 <status> filename #passed #skipped #failed
-<total> #total #passed #skipped #failed ?#time?
+<total> #passed #skipped #failed ?#time?
 <error> filename report
+<init>
 
 
 Notes to self:

@@ -49,8 +49,12 @@ package require Ttk
 package require tclunit
 
 namespace eval tclunit_gui {
-    namespace path [list [namespace current] ::tclunit ::]
-    variable widget	;# Array with GUI components
+    variable widget		;# Array with GUI components
+    variable testResults	;# Array with visible test results
+
+    variable runAllTests 1
+    variable testFile ""
+    variable testDirectory [pwd]
 }
 
 #-----------------------------------------------------------
@@ -67,7 +71,11 @@ namespace eval tclunit_gui {
 #
 #-----------------------------------------------------------
 proc tclunit_gui::initgui_for_tests {} {
+    variable testResults
     variable widget
+
+    #  Initialize results array
+    array unset testResults
 
     #  Initialize GUI, basically by deleting contents
     $widget(txt) delete 1.0 end
@@ -89,14 +97,17 @@ proc tclunit_gui::initgui_for_tests {} {
 #  Side Effects:
 #    changes the GUI
 #-----------------------------------------------------------
-proc tclunit_gui::show_test_skipped {filename testName} {
+proc tclunit_gui::show_test_skipped {filename testName reason} {
+    variable testResults
     variable widget
 
     # update the GUI
     set id [$widget(tv) insert $filename end \
 	-text $testName -image tclunit_gui::skippedIcon]
     update idletasks
-    return $id
+
+    #  Save a text string for display
+    set testResults($id) "$testName skipped: $reason"
 }
 
 #-----------------------------------------------------------
@@ -113,13 +124,16 @@ proc tclunit_gui::show_test_skipped {filename testName} {
 #    changes the GUI
 #-----------------------------------------------------------
 proc tclunit_gui::show_test_passed {filename testName} {
+    variable testResults
     variable widget
 
     #  update the GUI
     set id [$widget(tv) insert $filename end \
 	-text $testName -image tclunit_gui::passedIcon]
     update idletasks
-    return $id
+
+    #  Save a text string for display
+    set testResults($id) PASSED
 }
 
 #-----------------------------------------------------------
@@ -135,7 +149,8 @@ proc tclunit_gui::show_test_passed {filename testName} {
 #  Side Effects:
 #    updates the GUI.
 #-----------------------------------------------------------
-proc tclunit_gui::show_test_failed {filename testName} {
+proc tclunit_gui::show_test_failed {filename testName report} {
+    variable testResults
     variable widget
 
     #  Add the test to the gui
@@ -144,7 +159,9 @@ proc tclunit_gui::show_test_failed {filename testName} {
     $widget(tv) item $filename -image tclunit_gui::failedIcon
     $widget(ind) configure -background red -text "TEST FAILURES"
     update idletasks
-    return $id
+
+    #  Save a text string for display
+    set testResults($id) $report
 }
 
 #-----------------------------------------------------------
@@ -160,12 +177,48 @@ proc tclunit_gui::show_test_failed {filename testName} {
 #    changes the GUI
 #-----------------------------------------------------------
 proc tclunit_gui::show_test_file_start {filename} {
+    variable testResults
     variable widget
 
     #  Add this filename to the GUI
     $widget(tv) insert {} end -id $filename \
 	-text $filename -open false -image tclunit_gui::passedIcon
     update idletasks
+
+    #  Initialize test results, so users see something when
+    #  the filename is selected in the treeview
+    set testResults($filename) ""
+}
+
+# TODO: doc!
+proc tclunit_gui::update_test_status {filename passed skipped failed} {
+    variable statusLine
+    variable testResults
+
+    set total [expr {$passed + $skipped + $failed}]
+    set statusLine \
+	[format "%-20s:  Total %-5d    Passed %-5d    Skipped %-5d    Failed %-5d" \
+	$filename $total $passed $skipped $failed]
+
+    #  Copy summary to this test file's results
+    set testResults($filename) $statusLine
+}
+
+# TODO: doc!
+proc tclunit_gui::final_test_status {passed skipped failed time} {
+    variable statusLine
+    variable testResults
+
+    #  look at final statistics
+    set total [expr {$passed + $skipped + $failed}]
+
+    # Computing timing statistic
+    set velocity [expr {1000.0 * $total / $time}]
+
+    # update GUI indicator
+    set statusLine \
+	[format "Total %-5d Passed %-5d Skipped %-5d Failed %-5d    (%.1f tests/second)" \
+	$total $passed $skipped $failed $velocity]
 }
 
 #-----------------------------------------------------------
@@ -188,21 +241,25 @@ proc tclunit_gui::show_test_file_start {filename} {
 #    widgets that are used throughout the application.
 #-----------------------------------------------------------
 
-proc tclunit_gui::build_gui {rtArray statusVariable} {
+proc tclunit_gui::build_gui {} {
     variable widget
+    variable statusLine
+    variable runAllTests
+    variable testFile
+    variable testDirectory
 
     #  Select a test file or "run all tests"
     #  in a specific directory
     set ff [ttk::frame .fileframe]
     set frad [ttk::radiobutton $ff.filecheck -text "Test File" \
-	-variable ${rtArray}(runAllTests) -value 0]
-    set fent [ttk::entry $ff.filentry -textvariable ${rtArray}(testFile)]
+	-variable [namespace which -variable runAllTests] -value 0]
+    set fent [ttk::entry $ff.filentry -textvariable [namespace which -variable testFile]]
     set fbut [ttk::button $ff.filebtn -text "Browse..." \
 	-command [namespace code browseFile]]
 
     set arad [ttk::radiobutton $ff.allcheck -text "Run All Tests" \
-	-variable ${rtArray}(runAllTests) -value 1]
-    set aent [ttk::entry $ff.allentry -textvariable ${rtArray}(testDirectory)]
+	-variable [namespace which -variable runAllTests] -value 1]
+    set aent [ttk::entry $ff.allentry -textvariable [namespace which -variable testDirectory]]
     set abut [ttk::button $ff.allbtn -text "Choose Dir..." \
 	-command [namespace code browseDir]]
 
@@ -248,7 +305,7 @@ proc tclunit_gui::build_gui {rtArray statusVariable} {
     $pw add $bf
 
     #  add a status line
-    set statline [ttk::label .statusLine -textvariable $statusVariable]
+    set statline [ttk::label .statusLine -textvariable [namespace which -variable statusLine]]
 
     #  Assemble the main window parts
     grid $ff -sticky ew
@@ -316,17 +373,24 @@ proc tclunit_gui::build_gui {rtArray statusVariable} {
 #-----------------------------------------------------------
 proc tclunit_gui::gui_run_tests {} {
     variable widget
-    variable cto
+    variable statusLine
+    variable runAllTests
+    variable testFile
+    variable testDirectory
 
     #  enable/disable the buttons
     $widget(run)  configure -state disabled
     $widget(stop) configure -state normal
 
     #  run the tests
-    run_tests ;# FIXME backref into main module
+    if {$runAllTests} {
+	tclunit::run_tests $testDirectory
+    } else {
+	tclunit::run_tests $testFile
+    }
 
     # update GUI indicator
-    $widget(ind) configure -text $cto(statusLine) ;# FIXME cto ref!
+    $widget(ind) configure -text $statusLine
 
     #  enable/disable the buttons
     $widget(run)  configure -state normal
@@ -345,9 +409,8 @@ proc tclunit_gui::gui_run_tests {} {
 #  Side Effects
 #    Pretty much everything stops.
 #-----------------------------------------------------------
-# FIXME backref into main module
 proc tclunit_gui::gui_stop_tests {} {
-    stop_tests
+    tclunit::stop_tests
 }
 
 #-----------------------------------------------------------
@@ -391,9 +454,11 @@ proc tclunit_gui::gui_treeview_select {} {
 #  Side Effects
 #    Sets testFile and runAllTests global variables
 #-----------------------------------------------------------
-# FIXME $::testFile and $::runAllTests ref
 proc tclunit_gui::browseFile {} {
-    set dirname [file dirname $::testFile]
+    variable testFile
+    variable runAllTests
+
+    set dirname [file dirname $testFile]
     if { $dirname eq "" } {
 	set dirname [pwd]
     }
@@ -405,8 +470,8 @@ proc tclunit_gui::browseFile {} {
     set filename [tk_getOpenFile -initialdir $dirname -filetypes $filetypes]
     if { $filename ne "" } {
 	cd [file dirname $filename]
-	set ::testFile [file tail $filename]
-	set ::runAllTests 0
+	set testFile [file tail $filename]
+	set runAllTests 0
     }
 }
 
@@ -423,16 +488,17 @@ proc tclunit_gui::browseFile {} {
 #  Side Effects:
 #    Sets the global variables testDirectory and runAllTests
 #-----------------------------------------------------------
-# FIXME $::testDirectory and $::runAllTests ref
 proc tclunit_gui::browseDir {} {
-    set dirname [tk_chooseDirectory -initialdir $::testDirectory]
+    variable testDirectory
+    variable runAllTests
+
+    set dirname [tk_chooseDirectory -initialdir $testDirectory]
 
     if { $dirname ne "" } {
-	set ::testDirectory $dirname
-	set ::runAllTests 1
+	set testDirectory $dirname
+	set runAllTests 1
     }
 }
-
 
 #-----------------------------------------------------------
 #  tclunit_gui::main
@@ -450,25 +516,32 @@ proc tclunit_gui::browseDir {} {
 #    runs the program
 #-----------------------------------------------------------
 proc tclunit_gui::main {args} {
-
-    #  process command line arguments
-    set rt(testDirectory) [pwd]
-    set rt(withGUI) 1
+    variable runAllTests
+    variable testFile
+    variable testDirectory
 
     if { [llength $args] > 0 } {
 	if { [file exists [lindex $args 0]] } {
 	    set filename [lindex $args 0]
 
 	    if { ! [file isdirectory $filename] } {
-		set rt(runAllTests) 0
-		set rt(testFile) $filename
+		set runAllTests 0
+		set testFile $filename
 	    } else {
-		set rt(testDirectory) $filename
+		set testDirectory $filename
 	    }
 	}
     }
 
-    build_gui [namespace which -variable rt] [namespace which -variable cto](statusLine)
+    tclunit::configure event init [namespace code initgui_for_tests] \
+	event skipped [namespace code show_test_skipped] \
+	event passed [namespace code show_test_passed] \
+	event failed [namespace code show_test_failed] \
+	event suite [namespace code show_test_file_start] \
+	event status [namespace code update_test_status] \
+	event total [namespace code final_test_status]
+
+    build_gui
 }
 
 if {[info exists argv]} {

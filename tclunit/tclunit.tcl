@@ -46,8 +46,6 @@ package require Tcl 8.5
 
 namespace eval tclunit {
     variable cto	 ;# Capturing Test Output array
-# TODO: testResults is not used anywhere within this module -> convert to callback
-    variable testResults ;# results array
 
     variable rt		 ;# Array with runtime configuration
     set rt(testFile)	  ""
@@ -56,6 +54,83 @@ namespace eval tclunit {
     set rt(interp)	  [info nameofexecutable]
 
     set rt(withGUI) 0 ;# FIXME: wrong turn!!!
+
+    variable cbs	 ;# Array with callbacks for events
+    array set cbs {
+	init		noop
+	property	noop
+	suite		noop
+	skipped		noop
+	start		noop
+	passed		noop
+	failed		noop
+	error		noop
+	status		noop
+	total		noop
+    }
+}
+
+#-----------------------------------------------------------
+#  tclunit::noop
+#
+#  Description:
+#    Default callback. Eats all arguments and does nothing.
+#
+#  Arguments:
+#    ...
+#
+#  Side Effects:
+#    None.
+#-----------------------------------------------------------
+proc tclunit::noop {args} {}
+
+#-----------------------------------------------------------
+#  tclunit::configure
+#
+#  Description:
+#    Configuration of the tclunit module.
+#
+#  Arguments:
+#    event <tag> <script> - register <script> for event <tag>
+#    interp <path to interpreter> - interpreter to use for testing
+#
+#  Side Effects:
+#    Configuration changes.
+#-----------------------------------------------------------
+proc tclunit::configure {args} {
+    variable cbs
+    variable rt
+
+    set result {}
+
+    while {[llength $args]} {
+	set args [lassign $args cmd]
+	switch -- $cmd {
+	    event {
+		set args [lassign $args tag script]
+		if {$tag ni [array names cbs]} {
+		    return -code error "unknown event $tag, must be one of: [join [lsort [array names cbs]] {, }]"
+		}
+		if {$script eq ""} {
+		    lappend result [list event $tag $cbs($tag)]
+		} else {
+		    set cbs($tag) $script
+		}
+	    }
+	    interp {
+		set args [lassign $args interp]
+		if {$interp eq ""} {
+		    lappend result [list interp $rt(interp)]
+		} else {
+		    set rt(interp) $interp
+		}
+	    }
+	    default {
+		return -code error "unknown command $cmd, must be event or interp"
+	    }
+	}
+    }
+    return $result
 }
 
 #-----------------------------------------------------------
@@ -70,16 +145,17 @@ namespace eval tclunit {
 #  Side Effects
 #    Modified global env() array.
 #    Sets initial values for capturing test output
+#    Call configured init-callback
 #
 #-----------------------------------------------------------
 proc tclunit::init_for_tests {} {
     variable cto
-    variable testResults
-    variable rt
+    variable cbs
 
     # Run tests with verbose options
     #   so we can parse the output
-# TODO: filter existing options, provide possibility to add further options
+    # TODO; move setup of TCLTEST_OPTIONS into testScript
+    # TODO: filter existing options, provide possibility to add further options
     set ::env(TCLTEST_OPTIONS) "-verbose {body pass skip start error}"
 
     #  Initialize Capturing Test Output or "cto" array
@@ -95,16 +171,10 @@ proc tclunit::init_for_tests {} {
 	totalfailed 0
 	testName ""
 	result ""
-	statusLine ""
     }
 
-    #  Initialize results array
-    array unset testResults
-
-    # Initialize GUI if available
-    if {$rt(withGUI)} {
-	initgui_for_tests
-    }
+    # Call foreign initialization hook
+    {*}$cbs(init)
 }
 
 #-----------------------------------------------------------
@@ -233,7 +303,7 @@ proc tclunit::capture_test_output {chan} {
 	return
     }
 
-# TODO: also capture test properties, e.g. interpreter, test directory, etc.
+    # TODO: also capture test properties, e.g. interpreter, test directory, etc.
 
     #  Check for start, pass and fail lines
     switch -glob -- $line {
@@ -263,19 +333,14 @@ proc tclunit::capture_test_output {chan} {
 #    changes the test results variables
 #-----------------------------------------------------------
 proc tclunit::test_skipped {line} {
-    variable rt
+    variable cto
+    variable cbs
 
     incr_test_counter "skipped"
 
-    if {$rt(withGUI)} {
-	variable cto
-	variable testResults
-	# update the GUI
-	scan $line "%s %s" junk testName
-	set id [show_test_skipped $cto(filename) $testName]
-	#  Save a text string for display
-	set testResults($id) $line
-    }
+    # send update
+    scan $line "++++ %s SKIPPED: %s" testName reason
+    {*}$cbs(skipped) $cto(filename) $testName $reason
 }
 
 #-----------------------------------------------------------
@@ -292,11 +357,15 @@ proc tclunit::test_skipped {line} {
 #-----------------------------------------------------------
 proc tclunit::test_started {line} {
     variable cto
+    variable cbs
 
     scan $line "---- %s start" testName
     set cto(testName) $testName
     set cto(result) ""
     set cto(capturing) 0
+
+    # send update
+    {*}$cbs(start) $testName
 }
 
 #-----------------------------------------------------------
@@ -312,18 +381,14 @@ proc tclunit::test_started {line} {
 #    changes the capture test output (cto) variables
 #-----------------------------------------------------------
 proc tclunit::test_passed {line} {
+    variable cto
     variable rt
+    variable cbs
 
     incr_test_counter "passed"
 
-    if {$rt(withGUI)} {
-	variable cto
-	variable testResults
-	#  update the GUI
-	set id [show_test_passed $cto(filename) $cto(testName)]
-	#  Save a text string for display
-	set testResults($id) PASSED
-    }
+    #  update the GUI
+    {*}$cbs(passed) $cto(filename) $cto(testName)
 }
 
 #-----------------------------------------------------------
@@ -371,7 +436,7 @@ proc tclunit::test_failed {line} {
 #    changes the capture test output (cto) variables
 #-----------------------------------------------------------
 proc tclunit::test_failed_continue {line} {
-    variable rt
+    variable cbs
     variable cto
 
     append cto(result) "$line"
@@ -382,14 +447,7 @@ proc tclunit::test_failed_continue {line} {
     #  Is this the last line in the failure log?
     if { $line eq "==== $cto(testName) FAILED" } {
 	set cto(capturing) 0
-
-	if {$rt(withGUI)} {
-	    variable testResults
-	    #  Add the test to the gui
-	    set id [show_test_failed $cto(filename) $cto(testName)]
-	    #  Save a text string for display
-	    set testResults($id) $cto(result)
-	}
+	{*}$cbs(failed) $cto(filename) $cto(testName) $cto(result)
     }
 }
 
@@ -407,9 +465,8 @@ proc tclunit::test_failed_continue {line} {
 #    changes the capture test output (cto) variables
 #-----------------------------------------------------------
 proc tclunit::test_file_start {filename} {
-    variable rt
+    variable cbs
     variable cto
-    variable testResults
 
     #  Save the filename (which is the only thing on the line)
     lappend cto(filenames) $filename
@@ -420,14 +477,7 @@ proc tclunit::test_file_start {filename} {
     set cto(skipped) 0
     set cto(failed) 0
 
-    #  Initialize test results, so users see something when
-    #  the filename is selected in the treeview
-    set testResults($filename) ""
-
-    #  Add this filename to the GUI
-    if {$rt(withGUI)} {
-	show_test_file_start $filename
-    }
+    {*}$cbs(suite) $filename
 }
 
 #-----------------------------------------------------------
@@ -445,19 +495,13 @@ proc tclunit::test_file_start {filename} {
 #-----------------------------------------------------------
 proc tclunit::incr_test_counter {resultType} {
     variable cto
-    variable testResults
+    variable cbs
 
     incr cto($resultType)
     incr cto(total$resultType)
 
     #  Update the summary line
-    set total [expr {$cto(passed) + $cto(skipped) + $cto(failed)}]
-    set cto(statusLine) \
-	[format "%-20s:  Total %-5d    Passed %-5d    Skipped %-5d    Failed %-5d" \
-	$cto(filename) $total $cto(passed) $cto(skipped) $cto(failed)]
-
-    #  Copy summary to this test file's results
-    set testResults($cto(filename)) $cto(statusLine)
+    {*}$cbs(status) $cto(filename) $cto(passed) $cto(skipped) $cto(failed)
 }
 
 #-----------------------------------------------------------
@@ -474,36 +518,29 @@ proc tclunit::incr_test_counter {resultType} {
 #  Side Effects
 #    Pretty much everything happens.
 #-----------------------------------------------------------
-proc tclunit::run_tests {} {
+proc tclunit::run_tests {path} {
     variable cto
     variable rt
+    variable cbs
 
     #  run the tests
-    if { $rt(runAllTests) } {
-	cd $rt(testDirectory)
+    if {($path eq "") || ![file exists $path]} {
+	return -code error "no test suite at '$path'"
+    } elseif {[file isdirectory $path]} {
+	set rt(runAllTests) 1 ;# FIXME: necessary?
+	cd $path ;# TODO: move into testScript
 	run_all_tests
     } else {
-	if { ! [file exists $rt(testFile)] } {
-	    browseFile ;# FIXME GUI code
-	}
-	cd [file dirname $rt(testFile)]
-	run_test_file $rt(testFile)
+	set rt(runAllTests) 0 ;# FIXME: necessary?
+	cd [file dirname $path] ;# TODO: move into testScript
+	run_test_file $path
     }
-
-    #  look at final statistics
-    set passed $cto(totalpassed)
-    set skipped $cto(totalskipped)
-    set failed $cto(totalfailed)
-    set total [expr {$passed + $skipped + $failed}]
 
     # Computing timing statistic
     set time_in_ms [expr {$rt(finished_tests) - $rt(started_tests)}]
-    set velocity [expr {1000.0 * $total / $time_in_ms}]
 
-    # update GUI indicator
-    set cto(statusLine) \
-	[format "Total %-5d Passed %-5d Skipped %-5d Failed %-5d    (%.1f tests/second)" \
-	$total $passed $skipped $failed $velocity]
+    # send final statistics
+    {*}$cbs(total) $cto(totalpassed) $cto(totalskipped) $cto(totalfailed) $time_in_ms
 }
 
 #-----------------------------------------------------------
