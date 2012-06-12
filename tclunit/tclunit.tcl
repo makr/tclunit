@@ -536,6 +536,7 @@ proc tclunit::incr_test_counter {resultType} {
 proc tclunit::run_tests {path} {
     variable cto
     variable cbs
+    variable rt
 
     #  run the tests
     if {($path eq "") || ![file exists $path]} {
