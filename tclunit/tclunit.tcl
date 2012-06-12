@@ -2,60 +2,43 @@
 #
 #  tclunit
 #
-#  Tclunit is a simple GUI wrapper around the tcltest
-#  unit test framework.  It will give you the "green bar"
-#  that makes so many developers happy.
-#
-#  Synopsis:
-#     tclunit [testFile | testDirectory]
-#
 #  Tclunit will execute a single test file, or run
 #  all tests in a directory using tcltest's runAllTests
 #  procedure.  Test output is captured, parsed, and
-#  presented in the GUI.
+#  made available for e.g. being presented in a GUI.
 #
-#  Each file is listed in a tree view, with a green
-#  check if all tests passed, or a red "x" if any
-#  test failed.  Opening the file in the tree view
-#  lists all tests individually.  Selecting any test
-#  shows its output in the text view.
+#  [the remainder of Bob's initial comment still exists in
+#  tclunit_gui.tcl, please see there]
 #
-#  This program was developed with an early release
-#  of the "tile" themable widget package.  It may
-#  work with pre-0.6.5 releases, but it hasn't been
-#  tested.  The latest ActiveTcl releases should
-#  work just fine.
+#-----------------------------------------------------------
 #
-#  This program was created en-route to the Tcl/Tk 2005
-#  conference, as a quick demo to share with the
-#  attendees.  It isn't exactly robust.  It was not
-#  employed with any particulary saavy development
-#  strategies, like Model-View-Controller.  There are
-#  a bunch of marginally documented global variables.
-#  But worst of all, there isn't a test suite.
+#  The original tclunit is now splitted into the basic
+#  functionality and the GUI code. The GUI code can be found
+#  in tclunit_gui.tcl now.
+#  The functionality has been touched and extended at
+#  various places to better fit into the new architecture
+#  and provide the possiblity to further extend it. It is now
+#  a proper package and moved in its own namespace.
 #
-#  But with those apologies, please enjoy.
-#
-#
-#  Bob Techentin
-#  October 24, 2005
+#  Matthias Kraft
+#  June 12, 2012
 #
 #-----------------------------------------------------------
 
 package require Tcl 8.5
 
 namespace eval tclunit {
-    variable cto	 ;# Capturing Test Output array
+    namespace export configure run_tests stop_tests
 
-    variable rt		 ;# Array with runtime configuration
-    set rt(testFile)	  ""
-    set rt(testDirectory) ""
-    set rt(runAllTests)	  1
-    set rt(interp)	  [info nameofexecutable]
+    # Capturing Test Output array
+    variable cto
 
-    set rt(withGUI) 0 ;# FIXME: wrong turn!!!
+    # Array with runtime configuration
+    variable rt
+    set rt(interp)	[info nameofexecutable]
 
-    variable cbs	 ;# Array with callbacks for events
+    # Array with callbacks for events
+    variable cbs
     array set cbs {
 	init		noop
 	property	noop
@@ -88,7 +71,40 @@ proc tclunit::noop {args} {}
 #  tclunit::configure
 #
 #  Description:
-#    Configuration of the tclunit module.
+#    Configuration of the tclunit module. Right now the
+#    interpreter for running the tests can be configured. And
+#    listener scripts can be bound to a couple of events.
+#
+#  Event tags:
+#    init - called just before running the tests
+#    suite - called when runAllTests started a new test suite
+#	filename - the script has to take one arg, a filename
+#    skipped - called if a test was skipped
+#	filename - the suite this test belongs to
+#	testname - the name of the skipped test
+#	reason - the name of the tcltest constraint
+#    start - called when a new test started
+#	filename - the suite this test belongs to
+#	testname - the name of the started test
+#    passed - called when a test passed
+#	filename - the suite this test belongs to
+#	testname - the name of the passed test
+#    failed - called when a test failed
+#	filename - the suite this test belongs to
+#	testname - the name of the failing test
+#	report - the usual tcltest output
+#    status - called whenever a test has been finished
+#	filename - the currently running test suite
+#	passed - the number of passed tests of the suite so far
+#	skipped - the number of skipped tests
+#	failed - the number of failed tests
+#    total - called just after all tests finished
+#	passed - the number of all passed tests
+#	skipped - the number of all skipped tests
+#	failed - the number of all failed tests
+#	time - time all testing took in ms
+#    property - not yet implemented
+#    error - not yet implemented
 #
 #  Arguments:
 #    event <tag> <script> - register <script> for event <tag>
@@ -154,7 +170,7 @@ proc tclunit::init_for_tests {} {
 
     # Run tests with verbose options
     #   so we can parse the output
-    # TODO; move setup of TCLTEST_OPTIONS into testScript
+    # TODO: move setup of TCLTEST_OPTIONS into testScript
     # TODO: filter existing options, provide possibility to add further options
     set ::env(TCLTEST_OPTIONS) "-verbose {body pass skip start error}"
 
@@ -181,9 +197,8 @@ proc tclunit::init_for_tests {} {
 #  tclunit::run_all_tests
 #
 #  Description:
-#    Creates a test script for running
-#    all tests in the current working
-#    directory.  Then runs the tests.
+#    Creates a test script for running all tests in the
+#    current working directory. Then runs the tests.
 #
 #  Arguments:
 #    none
@@ -204,8 +219,8 @@ proc tclunit::run_all_tests {} {
 #  tclunit::run_test_file
 #
 #  Description:
-#    Creates a test script for running
-#    a single test file, then runs the tests.
+#    Creates a test script for running a single test file,
+#    then runs the tests.
 #
 #  Arguments:
 #    testfile  - file to be tested
@@ -227,9 +242,9 @@ proc tclunit::run_test_file {testfile} {
 #  tclunit::do_run_tests
 #
 #  Description:
-#    Run tclsh and feed it the test script written by
-#    run_all_tests or run_test_file.  Set up a fileevent
-#    reader to parse the output.  Then wait for it
+#    Run configured interpreter and feed it the test script
+#    written by run_all_tests or run_test_file. Set up a
+#    fileevent reader to parse the output. Then wait for it
 #    to finish.
 #
 #    Just for fun, capture clock time before and after
@@ -304,6 +319,8 @@ proc tclunit::capture_test_output {chan} {
     }
 
     # TODO: also capture test properties, e.g. interpreter, test directory, etc.
+    # TODO: also capture test file errors
+    # TODO: also capture output not obviously belonging to any test
 
     #  Check for start, pass and fail lines
     switch -glob -- $line {
@@ -347,8 +364,8 @@ proc tclunit::test_skipped {line} {
 #  tclunit::test_started
 #
 #  Description:
-#    Parse the test name from the line, and
-#    reset the capture test ouput (cto) variables.
+#    Parse the test name from the line, and reset some of the
+#    capture test ouput (cto) variables.
 #
 #  Arguments:
 #    line  - text of line captured from tcltest output
@@ -365,7 +382,7 @@ proc tclunit::test_started {line} {
     set cto(capturing) 0
 
     # send update
-    {*}$cbs(start) $testName
+    {*}$cbs(start) $cto(filename) $testName
 }
 
 #-----------------------------------------------------------
@@ -382,7 +399,6 @@ proc tclunit::test_started {line} {
 #-----------------------------------------------------------
 proc tclunit::test_passed {line} {
     variable cto
-    variable rt
     variable cbs
 
     incr_test_counter "passed"
@@ -397,7 +413,7 @@ proc tclunit::test_passed {line} {
 #  Description:
 #    Count the test as failed.
 #    Start capturing tcltest output until we get
-#    the "FAILED" line.
+#    the second "FAILED" line.
 #
 #  Arguments:
 #    line  - text of line captured from tcltest output
@@ -508,30 +524,26 @@ proc tclunit::incr_test_counter {resultType} {
 #  tclunit::run_tests
 #
 #  Description:
-#    This proc decides
-#    whether to call run_all_tests or run_test_file,
-#    then makes a nice summary of the tests.
+#    This proc decides whether to call run_all_tests or
+#    run_test_file, then makes a nice summary of the tests.
 #
 #  Arguments:
-#    none
+#    path - either an existing file or an existing directory
 #
 #  Side Effects
 #    Pretty much everything happens.
 #-----------------------------------------------------------
 proc tclunit::run_tests {path} {
     variable cto
-    variable rt
     variable cbs
 
     #  run the tests
     if {($path eq "") || ![file exists $path]} {
 	return -code error "no test suite at '$path'"
     } elseif {[file isdirectory $path]} {
-	set rt(runAllTests) 1 ;# FIXME: necessary?
 	cd $path ;# TODO: move into testScript
 	run_all_tests
     } else {
-	set rt(runAllTests) 0 ;# FIXME: necessary?
 	cd [file dirname $path] ;# TODO: move into testScript
 	run_test_file $path
     }
@@ -547,9 +559,8 @@ proc tclunit::run_tests {path} {
 #  tclunit::stop_tests
 #
 #  Description:
-#    This procedure terminates
-#    the running test process by closing the pipe and
-#    setting the global flag.
+#    This procedure terminates the running test process by
+#    closing the pipe and setting the vwait flag.
 #
 #  Arguments:
 #    none

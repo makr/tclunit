@@ -29,11 +29,7 @@ tclunit::cto(testName)     =
 tclunit::cto(totalfailed)  = 0
 tclunit::cto(totalpassed)  = 0
 tclunit::cto(totalskipped) = 0
-tclunit::rt(interp)        = *
-tclunit::rt(runAllTests)   = 1
-tclunit::rt(testDirectory) = 
-tclunit::rt(testFile)      = 
-tclunit::rt(withGUI)       = 0
+tclunit::rt(interp) = *
 } -result {TCLTEST_OPTIONS {-verbose {body pass skip start error}}}
 
 test run_all_tests-1.1 {call do_run_tests with runAllTests script} -setup {
@@ -381,11 +377,7 @@ tclunit::cto(testName)     =
 tclunit::cto(totalfailed)  = 0
 tclunit::cto(totalpassed)  = 0
 tclunit::cto(totalskipped) = 0
-tclunit::rt(interp)        = *
-tclunit::rt(runAllTests)   = 1
-tclunit::rt(testDirectory) = 
-tclunit::rt(testFile)      = 
-tclunit::rt(withGUI)       = 0
+tclunit::rt(interp) = *
 } -result {TCLTEST_OPTIONS {-verbose {body pass skip start error}}}
 
 test test_skipped-2.1 {count a skipped test} -body {

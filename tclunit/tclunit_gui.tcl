@@ -42,6 +42,18 @@
 #  October 24, 2005
 #
 #-----------------------------------------------------------
+#
+#  This is now splitted into the basic functionality and the
+#  GUI code. The functionality can be found in the tclunit
+#  package. This GUI code has been touched at various places
+#  to better fit into the new architecture, but otherwise
+#  left as initially written by Bob. Except ... everything
+#  is now in its proper namespace.
+#
+#  Matthias Kraft
+#  June 12, 2012
+#
+#-----------------------------------------------------------
 # GUI components for tclunit
 
 package require Tk 8.5
@@ -61,7 +73,8 @@ namespace eval tclunit_gui {
 #  tclunit_gui::initgui_for_tests
 #
 #  Description:
-#    Initializes GUI for running test suite.
+#    Initializes GUI for running test suite. Serves as <init>
+#    callback for tclunit.
 #
 #  Arguments
 #    none
@@ -88,11 +101,13 @@ proc tclunit_gui::initgui_for_tests {} {
 #  tclunit_gui::show_test_skipped
 #
 #  Description:
-#    Add the test to the GUI.
+#    Add the test to the GUI. Serves as <skipped> callback
+#    for tclunit.
 #
 #  Arguments:
 #    filename - the test suite currently running
 #    testName - the name of the skipped test case
+#    reason - the tcltest constraint name
 #
 #  Side Effects:
 #    changes the GUI
@@ -107,14 +122,15 @@ proc tclunit_gui::show_test_skipped {filename testName reason} {
     update idletasks
 
     #  Save a text string for display
-    set testResults($id) "$testName skipped: $reason"
+    set testResults($id) "SKIPPED: $reason"
 }
 
 #-----------------------------------------------------------
 #  tclunit_gui::show_test_passed
 #
 #  Description:
-#    Add the test to the GUI.
+#    Add the test to the GUI. Serves as <passed> callback
+#    for tclunit.
 #
 #  Arguments:
 #    filename - the test suite currently running
@@ -140,11 +156,13 @@ proc tclunit_gui::show_test_passed {filename testName} {
 #  tclunit_gui::show_test_failed
 #
 #  Description:
-#    Add this test to the GUI.
+#    Add this test to the GUI. Serves as <failed> callback
+#    for tclunit.
 #
 #  Arguments:
 #    filename - the test suite currently running
 #    testName - the name of the skipped test case
+#    report - the usual tcltest failure report
 #
 #  Side Effects:
 #    updates the GUI.
@@ -168,7 +186,8 @@ proc tclunit_gui::show_test_failed {filename testName report} {
 #  tclunit_gui::show_test_file_start
 #
 #  Description:
-#    Adds the file to the GUI.
+#    Adds the file to the GUI. Serves as <suite> callback for
+#    tclunit.
 #
 #  Arguments:
 #    filename - name of test file (that is about to be run)
@@ -190,7 +209,22 @@ proc tclunit_gui::show_test_file_start {filename} {
     set testResults($filename) ""
 }
 
-# TODO: doc!
+#-----------------------------------------------------------
+#  tclunit_gui::update_test_status
+#
+#  Description:
+#    Update the status report in the GUI. Serves as <status>
+#    callback for tclunit.
+#
+#  Arguments:
+#    filename - the test suite currently running
+#    passed - number of passed tests of the suite
+#    skipped - number of skipped tests of the suite
+#    failed - number of failed tests of the suite
+#
+#  Side Effects:
+#    changes the GUI
+#-----------------------------------------------------------
 proc tclunit_gui::update_test_status {filename passed skipped failed} {
     variable statusLine
     variable testResults
@@ -204,7 +238,22 @@ proc tclunit_gui::update_test_status {filename passed skipped failed} {
     set testResults($filename) $statusLine
 }
 
-# TODO: doc!
+#-----------------------------------------------------------
+#  tclunit_gui::finale_test_status
+#
+#  Description:
+#    Show the final test status report in the GUI. Serves as
+#    <total> callback for tclunit.
+#
+#  Arguments:
+#    passed - number of all passed tests
+#    skipped - number of all skipped tests
+#    failed - number of all failed tests
+#    time - time in ms for running all tests
+#
+#  Side Effects:
+#    changes the GUI
+#-----------------------------------------------------------
 proc tclunit_gui::final_test_status {passed skipped failed time} {
     variable statusLine
     variable testResults
@@ -253,13 +302,15 @@ proc tclunit_gui::build_gui {} {
     set ff [ttk::frame .fileframe]
     set frad [ttk::radiobutton $ff.filecheck -text "Test File" \
 	-variable [namespace which -variable runAllTests] -value 0]
-    set fent [ttk::entry $ff.filentry -textvariable [namespace which -variable testFile]]
+    set fent [ttk::entry $ff.filentry \
+	-textvariable [namespace which -variable testFile]]
     set fbut [ttk::button $ff.filebtn -text "Browse..." \
 	-command [namespace code browseFile]]
 
     set arad [ttk::radiobutton $ff.allcheck -text "Run All Tests" \
 	-variable [namespace which -variable runAllTests] -value 1]
-    set aent [ttk::entry $ff.allentry -textvariable [namespace which -variable testDirectory]]
+    set aent [ttk::entry $ff.allentry \
+	-textvariable [namespace which -variable testDirectory]]
     set abut [ttk::button $ff.allbtn -text "Choose Dir..." \
 	-command [namespace code browseDir]]
 
@@ -268,7 +319,8 @@ proc tclunit_gui::build_gui {} {
     grid columnconfigure $ff 1 -weight 1
 
     # Paned window
-    set pw [ttk::paned .pw -orient horizontal] ;# FIXME deprecated! use ::ttk::panedwindow instead
+    # FIXME: deprecated! use ::ttk::panedwindow instead
+    set pw [ttk::paned .pw -orient horizontal]
 
     # tree view of tests run
     set tvf [ttk::frame $pw.tvf]
@@ -293,7 +345,8 @@ proc tclunit_gui::build_gui {} {
 	-command [namespace code gui_run_tests]]
     set stop [ttk::button $bf.stop -text "Stop" \
 	-command [namespace code gui_stop_tests] -state disabled]
-    set ind [label $bf.indicator -text "" -background green] ;# TODO create styles instead
+    # TODO: create styles and then use ttk::label
+    set ind [label $bf.indicator -text "" -background green]
     set txt [text $bf.text]
 
     grid $run  $ind   -sticky news -padx 4 -pady 4
@@ -305,7 +358,8 @@ proc tclunit_gui::build_gui {} {
     $pw add $bf
 
     #  add a status line
-    set statline [ttk::label .statusLine -textvariable [namespace which -variable statusLine]]
+    set statline [ttk::label .statusLine \
+	-textvariable [namespace which -variable statusLine]]
 
     #  Assemble the main window parts
     grid $ff -sticky ew
@@ -361,10 +415,9 @@ proc tclunit_gui::build_gui {} {
 #  tclunit_gui::gui_run_tests
 #
 #  Description:
-#    Called by the "Run" button, this proc decides
-#    whether to call run_all_tests or run_test_file,
-#    then makes a nice summary of the tests and updates
-#    the GUI.
+#    Called by the "Run" button, this proc calls
+#    tclunit::run_tests, then shows a nice summary of the
+#    tests and updates the GUI.
 #
 #  Arguments:
 #    none
@@ -401,8 +454,9 @@ proc tclunit_gui::gui_run_tests {} {
 #  tclunit_gui::gui_stop_tests
 #
 #  Description:
-#    Called by the "Stop" button.  It also changes the enabled
-#    states of the buttons.
+#    Called by the "Stop" button, this proc just calls
+#    tclunit::stop_tests. Implicitely also changes the
+#    enabled states of the buttons.
 #
 #  Arguments:
 #    none
@@ -444,15 +498,14 @@ proc tclunit_gui::gui_treeview_select {} {
 #  tclunit_gui::browseFile
 #
 #  Description:
-#    Called by the file "Browse..." button,
-#    this procedure opens tk_getOpenFile
-#    and save the selected test file name to
-#    a global variable.
+#    Called by the file "Browse..." button, this procedure
+#    opens tk_getOpenFile and save the selected test file
+#    name to a variable.
 #
 #  Arguments:
 #    none
 #  Side Effects
-#    Sets testFile and runAllTests global variables
+#    Sets testFile and runAllTests variables
 #-----------------------------------------------------------
 proc tclunit_gui::browseFile {} {
     variable testFile
@@ -486,7 +539,7 @@ proc tclunit_gui::browseFile {} {
 #  Arguments:
 #    none
 #  Side Effects:
-#    Sets the global variables testDirectory and runAllTests
+#    Sets the variables testDirectory and runAllTests
 #-----------------------------------------------------------
 proc tclunit_gui::browseDir {} {
     variable testDirectory
@@ -513,7 +566,7 @@ proc tclunit_gui::browseDir {} {
 #    args - command line arguments (argv) the first of
 #           which might be a file name
 #  Side Effects:
-#    runs the program
+#    configures tclunit package and runs the program
 #-----------------------------------------------------------
 proc tclunit_gui::main {args} {
     variable runAllTests
@@ -533,7 +586,8 @@ proc tclunit_gui::main {args} {
 	}
     }
 
-    tclunit::configure event init [namespace code initgui_for_tests] \
+    tclunit::configure \
+	event init [namespace code initgui_for_tests] \
 	event skipped [namespace code show_test_skipped] \
 	event passed [namespace code show_test_passed] \
 	event failed [namespace code show_test_failed] \
