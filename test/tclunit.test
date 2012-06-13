@@ -17,9 +17,7 @@ namespace eval tclunit::test {}
 test init_for_tests-1.1 {resets variables and arrays} -body {
     tclunit::init_for_tests
     parray tclunit::cto
-    parray tclunit::rt
-    array get ::env TCLTEST_OPTIONS
-} -match glob -output {tclunit::cto(capturing)    = 0
+} -output {tclunit::cto(capturing)    = 0
 tclunit::cto(failed)       = 0
 tclunit::cto(filename)     = 
 tclunit::cto(passed)       = 0
@@ -29,18 +27,19 @@ tclunit::cto(testName)     =
 tclunit::cto(totalfailed)  = 0
 tclunit::cto(totalpassed)  = 0
 tclunit::cto(totalskipped) = 0
-tclunit::rt(interp) = *
-} -result {TCLTEST_OPTIONS {-verbose {body pass skip start error}}}
+}
 
 test run_all_tests-1.1 {call do_run_tests with runAllTests script} -setup {
     rename tclunit::do_run_tests tclunit::test::do_run_tests
     proc tclunit::do_run_tests {args} {puts $args}
 } -body {
-    tclunit::run_all_tests
+    tclunit::run_all_tests [file dirname [info script]]
 } -cleanup {
     rename tclunit::do_run_tests {}
     rename tclunit::test::do_run_tests tclunit::do_run_tests
-} -output {{
+} -match glob -output {{
+	set ::env(TCLTEST_OPTIONS) {-verbose {body pass skip start error}}
+	cd "*/tclunit/test"
 	package require tcltest
 	tcltest::runAllTests
 	exit
@@ -51,12 +50,14 @@ test run_test_file-1.1 {call do_run_tests with testfile script} -setup {
     rename tclunit::do_run_tests tclunit::test::do_run_tests
     proc tclunit::do_run_tests {args} {puts $args}
 } -body {
-    tclunit::run_test_file run_test_file-1.1-filename
+    tclunit::run_test_file [info script]
 } -cleanup {
     rename tclunit::do_run_tests {}
     rename tclunit::test::do_run_tests tclunit::do_run_tests
-} -output {{
-	source run_test_file-1.1-filename
+} -match glob -output {{
+	set ::env(TCLTEST_OPTIONS) {-verbose {body pass skip start error}}
+	cd */tclunit/test
+	source "*/tclunit/test/tclunit.test"
 	exit
     }
 }
@@ -69,13 +70,15 @@ test capture_test_output-1.1 {read and process a line from the remote interp} -c
     emptyTest
 }
 
-test test_file_start-1.1 {initialize a new test suite} -body {
+test test_file_start-1.1 {initialize a new test suite} -setup {
+    tclunit::init_for_tests
+} -body {
     tclunit::test_file_start test_file_start-1.1-filename
     parray tclunit::cto
 } -output {tclunit::cto(capturing)    = 0
 tclunit::cto(failed)       = 0
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 0
 tclunit::cto(result)       = 
 tclunit::cto(skipped)      = 0
@@ -91,7 +94,7 @@ test test_skipped-1.1 {count a skipped test} -body {
 } -output {tclunit::cto(capturing)    = 0
 tclunit::cto(failed)       = 0
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 0
 tclunit::cto(result)       = 
 tclunit::cto(skipped)      = 1
@@ -107,7 +110,7 @@ test test_started-1.1 {name of just started test} -body {
 } -output {tclunit::cto(capturing)    = 0
 tclunit::cto(failed)       = 0
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 0
 tclunit::cto(result)       = 
 tclunit::cto(skipped)      = 1
@@ -123,7 +126,7 @@ test test_passed-1.1 {count passed test} -body {
 } -output {tclunit::cto(capturing)    = 0
 tclunit::cto(failed)       = 0
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = 
 tclunit::cto(skipped)      = 1
@@ -140,7 +143,7 @@ test test_failed-1.1 {count failure and mark capturing start} -body {
 } -output {tclunit::cto(capturing)    = 1
 tclunit::cto(failed)       = 1
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturing start FAILED
 
@@ -157,7 +160,7 @@ test test_failed_continue-1.1 {capture remaining failure output} -body {
 } -output {tclunit::cto(capturing)    = 1
 tclunit::cto(failed)       = 1
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturing start FAILED
 ==== Contents of test case:
@@ -175,7 +178,7 @@ test test_failed_continue-1.2 {capture remaining failure output, cont'd} -body {
 } -output {tclunit::cto(capturing)    = 1
 tclunit::cto(failed)       = 1
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturing start FAILED
 ==== Contents of test case:
@@ -194,7 +197,7 @@ test test_failed_continue-1.3 {capture remaining failure output, cont'd} -body {
 } -output {tclunit::cto(capturing)    = 1
 tclunit::cto(failed)       = 1
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturing start FAILED
 ==== Contents of test case:
@@ -214,7 +217,7 @@ test test_failed_continue-1.4 {capture remaining failure output, cont'd} -body {
 } -output {tclunit::cto(capturing)    = 1
 tclunit::cto(failed)       = 1
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturing start FAILED
 ==== Contents of test case:
@@ -235,7 +238,7 @@ test test_failed_continue-1.5 {capture remaining failure output, cont'd} -body {
 } -output {tclunit::cto(capturing)    = 1
 tclunit::cto(failed)       = 1
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturing start FAILED
 ==== Contents of test case:
@@ -257,7 +260,7 @@ test test_failed_continue-1.6 {capture remaining failure output, cont'd} -body {
 } -output {tclunit::cto(capturing)    = 1
 tclunit::cto(failed)       = 1
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturing start FAILED
 ==== Contents of test case:
@@ -280,7 +283,7 @@ test test_failed_continue-1.7 {capture remaining failure output, cont'd} -body {
 } -output {tclunit::cto(capturing)    = 1
 tclunit::cto(failed)       = 1
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturing start FAILED
 ==== Contents of test case:
@@ -303,7 +306,7 @@ test test_failed_continue-1.8 {capture remaining failure output, cont'd} -body {
 } -output {tclunit::cto(capturing)    = 1
 tclunit::cto(failed)       = 1
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturing start FAILED
 ==== Contents of test case:
@@ -327,7 +330,7 @@ test test_failed_continue-1.9 {capture remaining failure output, cont'd} -body {
 } -output {tclunit::cto(capturing)    = 0
 tclunit::cto(failed)       = 1
 tclunit::cto(filename)     = test_file_start-1.1-filename
-tclunit::cto(filenames)    = run_test_file-1.1-filename test_file_start-1.1-filename
+tclunit::cto(filenames)    = test_file_start-1.1-filename
 tclunit::cto(passed)       = 1
 tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturing start FAILED
 ==== Contents of test case:
@@ -365,9 +368,7 @@ test stop_tests-1.1 {stop testing immediately} -constraints {
 test init_for_tests-2.1 {resets variables and arrays} -body {
     tclunit::init_for_tests
     parray tclunit::cto
-    parray tclunit::rt
-    array get ::env TCLTEST_OPTIONS
-} -match glob -output {tclunit::cto(capturing)    = 0
+} -output {tclunit::cto(capturing)    = 0
 tclunit::cto(failed)       = 0
 tclunit::cto(filename)     = 
 tclunit::cto(passed)       = 0
@@ -377,8 +378,7 @@ tclunit::cto(testName)     =
 tclunit::cto(totalfailed)  = 0
 tclunit::cto(totalpassed)  = 0
 tclunit::cto(totalskipped) = 0
-tclunit::rt(interp) = *
-} -result {TCLTEST_OPTIONS {-verbose {body pass skip start error}}}
+}
 
 test test_skipped-2.1 {count a skipped test} -body {
     tclunit::test_skipped "++++ test_skipped-1.1 SKIPPED: emptyTest"
@@ -627,3 +627,69 @@ tclunit::cto(totalfailed)  = 1
 tclunit::cto(totalpassed)  = 1
 tclunit::cto(totalskipped) = 1
 }
+
+# out of sequence tests
+
+test configure-1.1 {complete configuration introspection} -body {
+    tclunit::configure
+} -match glob -result {{event error noop}\
+ {event failed noop}\
+ {event init noop}\
+ {event passed noop}\
+ {event property noop}\
+ {event skipped noop}\
+ {event start noop}\
+ {event status noop}\
+ {event suite noop}\
+ {event total noop}\
+ {interp *}\
+ {tcltest {-verbose {body pass skip start error}}}}
+
+test configure-2.1 {event tag list retrieval} -body {
+    tclunit::configure event help
+} -returnCodes error -result {unknown event help, must be one of: error, failed, init, passed, property, skipped, start, status, suite, total}
+
+test configure-2.2 {event tag value query} -body {
+    tclunit::configure event init
+} -result {{event init noop}}
+
+test configure-2.3 {event tag configuration and subsequent usage} -setup {
+    proc tclunit::test::check4Call {args} {
+	variable configure14Check
+	set configure14Check $args
+    }
+} -body {
+    namespace eval tclunit::test {
+	tclunit::configure event init [namespace code [list check4Call called]]
+    }
+    tclunit::init_for_tests
+    set tclunit::test::configure14Check
+} -cleanup {
+    unset tclunit::test::configure14Check
+    rename tclunit::test::check4Call {}
+} -result {called}
+
+test configure-3.1 {default interp is this one} -body {
+    join [tclunit::configure interp] " "
+} -result [list interp [info nameofexecutable]]
+
+test configure-3.2 {configure other interp to use} -setup {
+    set configure32interp $tclunit::rt(interp)
+} -body {
+    list [tclunit::configure interp /usr/bin/sh] [set tclunit::rt(interp)]
+} -cleanup {
+    set tclunit::rt(interp) $configure32interp
+    unset configure32interp
+} -result {{} /usr/bin/sh}
+
+test configure-4.1 {default tcltest config is min required by tclunit} -body {
+    join [tclunit::configure tcltest] " "
+} -result {tcltest {-verbose {body pass skip start error}}}
+
+test configure-4.2 {tcltest config drops -verbose, -outfile and -errfile} -body {
+    tclunit::configure tcltest {-file tcltest.test -outfile tcltest.out -errfile tcltest.err -verbose pbsetl}
+    join [tclunit::configure tcltest] " "
+} -result {tcltest {-file tcltest.test -verbose {body pass skip start error}}}
+
+# test suite cleanup
+tcltest::cleanupTests 0

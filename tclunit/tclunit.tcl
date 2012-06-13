@@ -36,6 +36,9 @@ namespace eval tclunit {
     # Array with runtime configuration
     variable rt
     set rt(interp)	[info nameofexecutable]
+    # Run tests with verbose options so we can parse the output
+    set rt(verbosity)	{body pass skip start error}
+    set rt(testconfig)	[list -verbose $rt(verbosity)]
 
     # Array with callbacks for events
     variable cbs
@@ -109,6 +112,8 @@ proc tclunit::noop {args} {}
 #  Arguments:
 #    event <tag> <script> - register <script> for event <tag>
 #    interp <path to interpreter> - interpreter to use for testing
+#    tcltest <list of tcltest::configure options>
+#	 - drops -verbose, -outfile and -errfile, as they are needed by tclunit
 #
 #  Side Effects:
 #    Configuration changes.
@@ -116,6 +121,15 @@ proc tclunit::noop {args} {}
 proc tclunit::configure {args} {
     variable cbs
     variable rt
+
+    if {[llength $args] == 0} {
+	# full configuration introspection
+	foreach tag [lsort [array names cbs]] {
+	    lappend args event $tag {}
+	}
+	lappend args interp {}
+	lappend args tcltest {}
+    }
 
     set result {}
 
@@ -141,8 +155,24 @@ proc tclunit::configure {args} {
 		    set rt(interp) $interp
 		}
 	    }
+	    tcltest {
+		set args [lassign $args testconfig]
+		if {$testconfig eq ""} {
+		    # TODO: introspect tcltest settings in interp?
+		    lappend result [list tcltest $rt(testconfig)]
+		} elseif {[catch {array set FilterConfig $testconfig} msg]} {
+		    return -code error "unable to filter tcltest configuration: $msg"
+		} else {
+		    # Almost everything might be configured, but not ...
+		    set FilterConfig(-verbose) $rt(verbosity)
+		    array unset FilterConfig -outfile
+		    array unset FilterConfig -errfile
+		    set rt(testconfig) [array get FilterConfig]
+		}
+	    }
 	    default {
-		return -code error "unknown command $cmd, must be event or interp"
+		return -code error "unknown command $cmd, must be event, interp\
+				    or tcltest"
 	    }
 	}
     }
@@ -167,12 +197,6 @@ proc tclunit::configure {args} {
 proc tclunit::init_for_tests {} {
     variable cto
     variable cbs
-
-    # Run tests with verbose options
-    #   so we can parse the output
-    # TODO: move setup of TCLTEST_OPTIONS into testScript
-    # TODO: filter existing options, provide possibility to add further options
-    set ::env(TCLTEST_OPTIONS) "-verbose {body pass skip start error}"
 
     #  Initialize Capturing Test Output or "cto" array
     array unset cto
@@ -201,17 +225,23 @@ proc tclunit::init_for_tests {} {
 #    current working directory. Then runs the tests.
 #
 #  Arguments:
-#    none
+#    testdirectory - the directory with all the test files
+#
 #  Side Effects:
 #    runs all the tests in the directory
 #-----------------------------------------------------------
-proc tclunit::run_all_tests {} {
+proc tclunit::run_all_tests {testdirectory} {
+    variable rt
+
     init_for_tests
     set testScript {
+	set ::env(TCLTEST_OPTIONS) [list $rt(testconfig)]
+	cd "$testdirectory"
 	package require tcltest
 	tcltest::runAllTests
 	exit
     }
+    set testScript [subst $testScript]
     do_run_tests $testScript
 }
 
@@ -228,13 +258,17 @@ proc tclunit::run_all_tests {} {
 #    runs the test file
 #-----------------------------------------------------------
 proc tclunit::run_test_file {testfile} {
+    variable rt
+
     init_for_tests
     set testScript {
-	source $testfile
+	set ::env(TCLTEST_OPTIONS) [list $rt(testconfig)]
+	cd [file dirname "$testfile"]
+	source "$testfile"
 	exit
     }
     set testScript [subst $testScript]
-    test_file_start $testfile
+    test_file_start [file tail $testfile]
     do_run_tests $testScript
 }
 
@@ -541,12 +575,12 @@ proc tclunit::run_tests {path} {
     #  run the tests
     if {($path eq "") || ![file exists $path]} {
 	return -code error "no test suite at '$path'"
-    } elseif {[file isdirectory $path]} {
-	cd $path ;# TODO: move into testScript
-	run_all_tests
+    }
+
+    if {[file isdirectory $path]} {
+	run_all_tests [file normalize $path]
     } else {
-	cd [file dirname $path] ;# TODO: move into testScript
-	run_test_file $path
+	run_test_file [file normalize $path]
     }
 
     # Computing timing statistic
