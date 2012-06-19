@@ -242,6 +242,7 @@ proc tclunit::run_all_tests {testdirectory} {
 	exit
     }
     set testScript [subst $testScript]
+    set rt(testdirectory) $testdirectory
     do_run_tests $testScript
 }
 
@@ -269,6 +270,7 @@ proc tclunit::run_test_file {testfile} {
     }
     set testScript [subst $testScript]
     test_file_start [file tail $testfile]
+    set rt(testdirectory) [file dirname $testfile]
     do_run_tests $testScript
 }
 
@@ -344,11 +346,20 @@ proc tclunit::capture_test_output {chan} {
     }
 
     # Read the line
-    gets $chan line
+    if {[gets $chan line] < 0} {
+	# not enough input available
+	return
+    }
+    # FIXME: just for debugging
+    # puts stderr "${line}"
 
     #  If we're saving up test results...
     if { $cto(capturing) } {
 	test_failed_continue $line
+	return
+
+    } elseif {[string trim $line] eq ""} {
+	# empty lines can be ignored beyond this point
 	return
     }
 
@@ -366,7 +377,7 @@ proc tclunit::capture_test_output {chan} {
 
     #  If the line is a file name
     #   then save it
-    if { [file exists $line] } {
+    if {[file exists [file join $rt(testdirectory) $line]]} {
 	test_file_start $line
     }
 }
@@ -473,12 +484,6 @@ proc tclunit::test_failed {line} {
 #    the final line in the failed test output (with "FAILED")
 #    then we stop the capture process.
 #
-#    Note that the "Result should have been..." line
-#    seems to come with an attached newline, while every
-#    other line requires a newline.  Not sure why this
-#    special case is required to get test results that
-#    look just like regular tcltest output on a console.
-#
 #  Arguments:
 #    line  - text of line captured from tcltest output
 #
@@ -489,10 +494,7 @@ proc tclunit::test_failed_continue {line} {
     variable cbs
     variable cto
 
-    append cto(result) "$line"
-    if { ! [string match "*Result should have been*" $line] } {
-	append cto(result) "\n"
-    }
+    append cto(result) ${line} \n
 
     #  Is this the last line in the failure log?
     if { $line eq "==== $cto(testName) FAILED" } {

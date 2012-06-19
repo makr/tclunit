@@ -293,6 +293,7 @@ tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturi
 ---- Result was:
 foo
 ---- Result should have been (exact matching):
+
 tclunit::cto(skipped)      = 1
 tclunit::cto(testName)     = test_failed-1.1
 tclunit::cto(totalfailed)  = 1
@@ -317,6 +318,7 @@ tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturi
 foo
 ---- Result should have been (exact matching):
 
+
 tclunit::cto(skipped)      = 1
 tclunit::cto(testName)     = test_failed-1.1
 tclunit::cto(totalfailed)  = 1
@@ -340,6 +342,7 @@ tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturi
 ---- Result was:
 foo
 ---- Result should have been (exact matching):
+
 ==== test_failed-1.1 FAILED
 
 tclunit::cto(skipped)      = 1
@@ -574,6 +577,7 @@ tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturi
 ---- Result was:
 foo
 ---- Result should have been (exact matching):
+
 tclunit::cto(skipped)      = 1
 tclunit::cto(testName)     = test_failed-1.1
 tclunit::cto(totalfailed)  = 1
@@ -597,6 +601,7 @@ tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturi
 foo
 ---- Result should have been (exact matching):
 
+
 tclunit::cto(skipped)      = 1
 tclunit::cto(testName)     = test_failed-1.1
 tclunit::cto(totalfailed)  = 1
@@ -619,6 +624,7 @@ tclunit::cto(result)       = ==== test_failed-1.1 count failure and mark capturi
 ---- Result was:
 foo
 ---- Result should have been (exact matching):
+
 ==== test_failed-1.1 FAILED
 
 tclunit::cto(skipped)      = 1

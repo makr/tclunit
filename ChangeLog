@@ -1,3 +1,14 @@
+2012-06-19  Matthias Kraft  <M dot Kraft at gmx dot com>
+
+	* tclunit/tclunit.tcl test/tclunit.test: Fixed unhandled short reads.
+
+2012-06-13  Matthias Kraft  <M dot Kraft at gmx dot com>
+
+	* tclunit/pkgIndex.tcl test/tclunit.test: added
+	* tclunit/tclunit.tcl tclunit/tclunit_gui.tcl: moved and refactored to have
+	functionality and GUI application separated.
+	Tagged as tclunit 1.1!
+
 2006-11-26  Bob Techentin  <techentin@users.sourceforge.net>
 
 	*  tclunit.tcl:  Corrected bug 1513342 where failures counted
