@@ -1,0 +1,25 @@
+# ---------------------------------------------------------------------------
+#
+# -- tests4tclunit.test
+#
+# Some test cases to test the various tclunit scripts.
+# ---------------------------------------------------------------------------
+
+package require tcltest 2.2
+
+namespace import -force tcltest::*
+
+test success-1.1 {Succeeding test} {
+    expr 1
+} {1}
+
+test failure-1.1 {Failing test} {
+    expr 1
+} {2}
+
+test skip-1.1 {Skipped test} -constraints {
+    emptyTest
+}
+
+# test suite cleanup
+tcltest::cleanupTests 0

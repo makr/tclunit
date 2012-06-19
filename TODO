@@ -4,13 +4,12 @@ Refactoring Goals:
 * separated GUI from function
 * users can register callbacks for various events
 
-2. set functionality on top on tcltest, i.e. with interface and behavior
-   compatibility (might not be necessary, depends on timing tests)
-2.1. check if timing on capturing events produces acceptable results
-2.2. do not produce timing information when converting existing tcltest log files
+2. dump results as TestNG compatible XML file
 
-3. dump results as TestNG compatible XML file
-3.1. see JUnit.xsd
+3. set functionality on top on tcltest, i.e. with interface and behavior
+   compatibility (might not be necessary, depends on timing tests)
+3.1. check if timing on capturing events produces acceptable results
+3.2. do not produce timing information when converting existing tcltest log files
 
 -----------------------------------------------------------------------------
 API:
@@ -45,4 +44,4 @@ output.
 
 * prepare a Jenkins instance
 * prepare examples in Java and Tcl
-* prepare a small prezi (http://prezi.com/)
+* prepare a small presentation
