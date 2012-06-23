@@ -114,6 +114,8 @@ proc tclunit::noop {args} {}
 #    interp <path to interpreter> - interpreter to use for testing
 #    tcltest <list of tcltest::configure options>
 #	 - drops -verbose, -outfile and -errfile, as they are needed by tclunit
+#    reset - resets everything to its defaults upon encounter, stops processing
+#	 of any further arguments and returns an empty list
 #
 #  Side Effects:
 #    Configuration changes.
@@ -170,9 +172,18 @@ proc tclunit::configure {args} {
 		    set rt(testconfig) [array get FilterConfig]
 		}
 	    }
+	    reset {
+		foreach tag [array names cbs] {
+		    set cbs($tag) noop
+		}
+		set rt(interp) [info nameofexecutable]
+		set rt(testconfig) [list -verbose $rt(verbosity)]
+		set result {}
+		break
+	    }
 	    default {
-		return -code error "unknown command $cmd, must be event, interp\
-				    or tcltest"
+		return -code error "unknown command $cmd, must be event,\
+				    interp, tcltest or reset"
 	    }
 	}
     }
@@ -377,7 +388,8 @@ proc tclunit::capture_test_output {chan} {
 
     #  If the line is a file name
     #   then save it
-    if {[file exists [file join $rt(testdirectory) $line]]} {
+    if {[file exists [file join $rt(testdirectory) $line]] ||
+	([file extension $line] eq ".test")} {
 	test_file_start $line
     }
 }
@@ -560,11 +572,12 @@ proc tclunit::incr_test_counter {resultType} {
 #  tclunit::run_tests
 #
 #  Description:
-#    This proc decides whether to call run_all_tests or
-#    run_test_file, then makes a nice summary of the tests.
+#    This proc decides whether to call run_all_tests, run_test_file or
+#    read_testlog, then makes a nice summary of the tests.
 #
 #  Arguments:
-#    path - either an existing file or an existing directory
+#    path - either an existing directory, an existing test script (ending with
+#	 .test) or a log file of a previous test run.
 #
 #  Side Effects
 #    Pretty much everything happens.
@@ -581,8 +594,10 @@ proc tclunit::run_tests {path} {
 
     if {[file isdirectory $path]} {
 	run_all_tests [file normalize $path]
-    } else {
+    } elseif {[file extension $path] eq ".test"} {
 	run_test_file [file normalize $path]
+    } else {
+	read_testlog [file normalize $path]
     }
 
     # Computing timing statistic
@@ -609,6 +624,43 @@ proc tclunit::stop_tests {} {
 
     close $rt(pipe)
     set rt(finished_tests) 1
+}
+
+#-----------------------------------------------------------
+#  tclunit::read_testlog
+#
+#  Description:
+#    Read a test log written by other purposes. Set up a
+#    fileevent reader to parse the log. Then wait for it
+#    to finish.
+#
+#  Arguments:
+#    testlog   - log of a test run
+#  Side Effects:
+#    defines fileevent to parse the output
+#    and hangs until the parser notifies us.
+#-----------------------------------------------------------
+proc tclunit::read_testlog {testlog} {
+    variable rt
+
+    init_for_tests
+    set rt(testdirectory) ""
+
+    # FIXME: this does not make much sense in this context
+    #  Set timers
+    set rt(started_tests) [clock milliseconds]
+    set rt(finished_tests) 0
+
+    #  Exec a tcl shell to run the scripts
+    set rt(pipe) [open $testlog r]
+    fconfigure $rt(pipe) -blocking 0 -buffering line
+    fileevent $rt(pipe) readable [namespace code [list capture_test_output $rt(pipe)]]
+
+    #  Wait for the parser to finish
+    vwait [namespace which -variable rt](finished_tests)
+
+    #  check the time
+    set rt(finished_tests) [clock milliseconds]
 }
 
 package provide tclunit 1.1

@@ -39,7 +39,7 @@ test run_all_tests-1.1 {call do_run_tests with runAllTests script} -setup {
     rename tclunit::test::do_run_tests tclunit::do_run_tests
 } -match glob -output {{
 	set ::env(TCLTEST_OPTIONS) {-verbose {body pass skip start error}}
-	cd "*/tclunit/test"
+	cd "*/test"
 	package require tcltest
 	tcltest::runAllTests
 	exit
@@ -56,8 +56,8 @@ test run_test_file-1.1 {call do_run_tests with testfile script} -setup {
     rename tclunit::test::do_run_tests tclunit::do_run_tests
 } -match glob -output {{
 	set ::env(TCLTEST_OPTIONS) {-verbose {body pass skip start error}}
-	cd */tclunit/test
-	source "*/tclunit/test/tclunit.test"
+	cd */test
+	source "*/test/tclunit.test"
 	exit
     }
 }
@@ -651,6 +651,10 @@ test configure-1.1 {complete configuration introspection} -body {
  {interp *}\
  {tcltest {-verbose {body pass skip start error}}}}
 
+test configure-1.2 {configuration sub commands} -body {
+    tclunit::configure help
+} -returnCodes error -result {unknown command help, must be event, interp, tcltest or reset}
+
 test configure-2.1 {event tag list retrieval} -body {
     tclunit::configure event help
 } -returnCodes error -result {unknown event help, must be one of: error, failed, init, passed, property, skipped, start, status, suite, total}
@@ -696,6 +700,181 @@ test configure-4.2 {tcltest config drops -verbose, -outfile and -errfile} -body 
     tclunit::configure tcltest {-file tcltest.test -outfile tcltest.out -errfile tcltest.err -verbose pbsetl}
     join [tclunit::configure tcltest] " "
 } -result {tcltest {-file tcltest.test -verbose {body pass skip start error}}}
+
+test configure-5.1 {reset of runtime configuration} -body {
+    list [tclunit::configure reset] [tclunit::configure]
+} -match glob -result {{}\
+ {{event error noop}\
+  {event failed noop}\
+  {event init noop}\
+  {event passed noop}\
+  {event property noop}\
+  {event skipped noop}\
+  {event start noop}\
+  {event status noop}\
+  {event suite noop}\
+  {event total noop}\
+  {interp *}\
+  {tcltest {-verbose {body pass skip start error}}}}}
+
+test read_testlog-1.1 {read a test log} -setup {
+    rename tclunit::noop tclunit::test::noop
+    proc tclunit::noop {args} {puts "[lindex [info level -1] 0]:[join $args "|"]"}
+} -body {
+    tclunit::run_tests [file join [file dirname [info script]] tclunit-test.log]
+} -cleanup {
+    rename tclunit::noop {}
+    rename tclunit::test::noop tclunit::noop
+} -output {init_for_tests:
+test_file_start:tclunit.test
+test_started:tclunit.test|init_for_tests-1.1
+incr_test_counter:tclunit.test|1|0|0
+test_passed:tclunit.test|init_for_tests-1.1
+test_started:tclunit.test|run_all_tests-1.1
+incr_test_counter:tclunit.test|2|0|0
+test_passed:tclunit.test|run_all_tests-1.1
+test_started:tclunit.test|run_test_file-1.1
+incr_test_counter:tclunit.test|3|0|0
+test_passed:tclunit.test|run_test_file-1.1
+incr_test_counter:tclunit.test|3|1|0
+test_skipped:tclunit.test|do_run_tests-1.1|emptyTest
+incr_test_counter:tclunit.test|3|2|0
+test_skipped:tclunit.test|capture_test_output-1.1|emptyTest
+test_started:tclunit.test|test_file_start-1.1
+incr_test_counter:tclunit.test|4|2|0
+test_passed:tclunit.test|test_file_start-1.1
+test_started:tclunit.test|test_skipped-1.1
+incr_test_counter:tclunit.test|5|2|0
+test_passed:tclunit.test|test_skipped-1.1
+test_started:tclunit.test|test_started-1.1
+incr_test_counter:tclunit.test|6|2|0
+test_passed:tclunit.test|test_started-1.1
+test_started:tclunit.test|test_passed-1.1
+incr_test_counter:tclunit.test|7|2|0
+test_passed:tclunit.test|test_passed-1.1
+test_started:tclunit.test|test_failed-1.1
+incr_test_counter:tclunit.test|8|2|0
+test_passed:tclunit.test|test_failed-1.1
+test_started:tclunit.test|test_failed_continue-1.1
+incr_test_counter:tclunit.test|9|2|0
+test_passed:tclunit.test|test_failed_continue-1.1
+test_started:tclunit.test|test_failed_continue-1.2
+incr_test_counter:tclunit.test|10|2|0
+test_passed:tclunit.test|test_failed_continue-1.2
+test_started:tclunit.test|test_failed_continue-1.3
+incr_test_counter:tclunit.test|11|2|0
+test_passed:tclunit.test|test_failed_continue-1.3
+test_started:tclunit.test|test_failed_continue-1.4
+incr_test_counter:tclunit.test|12|2|0
+test_passed:tclunit.test|test_failed_continue-1.4
+test_started:tclunit.test|test_failed_continue-1.5
+incr_test_counter:tclunit.test|13|2|0
+test_passed:tclunit.test|test_failed_continue-1.5
+test_started:tclunit.test|test_failed_continue-1.6
+incr_test_counter:tclunit.test|14|2|0
+test_passed:tclunit.test|test_failed_continue-1.6
+test_started:tclunit.test|test_failed_continue-1.7
+incr_test_counter:tclunit.test|15|2|0
+test_passed:tclunit.test|test_failed_continue-1.7
+test_started:tclunit.test|test_failed_continue-1.8
+incr_test_counter:tclunit.test|16|2|0
+test_passed:tclunit.test|test_failed_continue-1.8
+test_started:tclunit.test|test_failed_continue-1.9
+incr_test_counter:tclunit.test|17|2|0
+test_passed:tclunit.test|test_failed_continue-1.9
+incr_test_counter:tclunit.test|17|3|0
+test_skipped:tclunit.test|incr_test_counter-1.1|emptyTest
+incr_test_counter:tclunit.test|17|4|0
+test_skipped:tclunit.test|run_tests-1.1|emptyTest
+incr_test_counter:tclunit.test|17|5|0
+test_skipped:tclunit.test|stop_tests-1.1|emptyTest
+test_started:tclunit.test|init_for_tests-2.1
+incr_test_counter:tclunit.test|18|5|0
+test_passed:tclunit.test|init_for_tests-2.1
+test_started:tclunit.test|test_skipped-2.1
+incr_test_counter:tclunit.test|19|5|0
+test_passed:tclunit.test|test_skipped-2.1
+test_started:tclunit.test|test_started-2.1
+incr_test_counter:tclunit.test|20|5|0
+test_passed:tclunit.test|test_started-2.1
+test_started:tclunit.test|test_passed-2.1
+incr_test_counter:tclunit.test|21|5|0
+test_passed:tclunit.test|test_passed-2.1
+test_started:tclunit.test|test_failed-2.1
+incr_test_counter:tclunit.test|22|5|0
+test_passed:tclunit.test|test_failed-2.1
+test_started:tclunit.test|test_failed_continue-2.1
+incr_test_counter:tclunit.test|23|5|0
+test_passed:tclunit.test|test_failed_continue-2.1
+test_started:tclunit.test|test_failed_continue-2.2
+incr_test_counter:tclunit.test|24|5|0
+test_passed:tclunit.test|test_failed_continue-2.2
+test_started:tclunit.test|test_failed_continue-2.3
+incr_test_counter:tclunit.test|25|5|0
+test_passed:tclunit.test|test_failed_continue-2.3
+test_started:tclunit.test|test_failed_continue-2.4
+incr_test_counter:tclunit.test|26|5|0
+test_passed:tclunit.test|test_failed_continue-2.4
+test_started:tclunit.test|test_failed_continue-2.5
+incr_test_counter:tclunit.test|27|5|0
+test_passed:tclunit.test|test_failed_continue-2.5
+test_started:tclunit.test|test_failed_continue-2.6
+incr_test_counter:tclunit.test|28|5|0
+test_passed:tclunit.test|test_failed_continue-2.6
+test_started:tclunit.test|test_failed_continue-2.7
+incr_test_counter:tclunit.test|29|5|0
+test_passed:tclunit.test|test_failed_continue-2.7
+test_started:tclunit.test|test_failed_continue-2.8
+incr_test_counter:tclunit.test|30|5|0
+test_passed:tclunit.test|test_failed_continue-2.8
+test_started:tclunit.test|test_failed_continue-2.9
+incr_test_counter:tclunit.test|31|5|0
+test_passed:tclunit.test|test_failed_continue-2.9
+test_started:tclunit.test|configure-1.1
+incr_test_counter:tclunit.test|32|5|0
+test_passed:tclunit.test|configure-1.1
+test_started:tclunit.test|configure-2.1
+incr_test_counter:tclunit.test|33|5|0
+test_passed:tclunit.test|configure-2.1
+test_started:tclunit.test|configure-2.2
+incr_test_counter:tclunit.test|34|5|0
+test_passed:tclunit.test|configure-2.2
+test_started:tclunit.test|configure-2.3
+incr_test_counter:tclunit.test|35|5|0
+test_passed:tclunit.test|configure-2.3
+test_started:tclunit.test|configure-3.1
+incr_test_counter:tclunit.test|36|5|0
+test_passed:tclunit.test|configure-3.1
+test_started:tclunit.test|configure-3.2
+incr_test_counter:tclunit.test|37|5|0
+test_passed:tclunit.test|configure-3.2
+test_started:tclunit.test|configure-4.1
+incr_test_counter:tclunit.test|38|5|0
+test_passed:tclunit.test|configure-4.1
+test_started:tclunit.test|configure-4.2
+incr_test_counter:tclunit.test|39|5|0
+test_passed:tclunit.test|configure-4.2
+test_file_start:tests4tclunit.test
+test_started:tests4tclunit.test|success-1.1
+incr_test_counter:tests4tclunit.test|1|0|0
+test_passed:tests4tclunit.test|success-1.1
+test_started:tests4tclunit.test|failure-1.1
+incr_test_counter:tests4tclunit.test|1|0|1
+test_failed_continue:tests4tclunit.test|failure-1.1|==== failure-1.1 Failing test FAILED
+==== Contents of test case:
+
+    expr 1
+
+---- Result was:
+1
+---- Result should have been (exact matching):
+2
+==== failure-1.1 FAILED
+
+incr_test_counter:tests4tclunit.test|1|1|1
+test_skipped:tests4tclunit.test|skip-1.1|emptyTest
+tclunit::run_tests:40|6|1|7
+}
 
 # test suite cleanup
 tcltest::cleanupTests 0
