@@ -55,13 +55,24 @@ proc tclunit_xml::testcase_failed {filename testcase report {time 0}} {
     puts "</testcase>"
 }
 
+proc tclunit_xml::property {name value} {
+    variable openedTags
+
+    if {[lindex $openedTags end] ne "properties"} {
+	puts "<properties>"
+	lappend openedTags properties
+    }
+    puts [format {<property name="%s" value="%s"/>} $name $value]
+}
+
 proc tclunit_xml::main {args} {
     tclunit::configure \
 	event init [namespace code close_tags] \
 	event suite [namespace code new_testsuite] \
 	event skipped [namespace code testcase_skipped] \
 	event passed [namespace code testcase_passed] \
-	event failed [namespace code testcase_failed]
+	event failed [namespace code testcase_failed] \
+	event property [namespace code property]
 
     puts "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
     puts "<testsuites>"

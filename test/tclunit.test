@@ -725,7 +725,14 @@ test read_testlog-1.1 {read a test log} -setup {
 } -cleanup {
     rename tclunit::noop {}
     rename tclunit::test::noop tclunit::noop
-} -output {init_for_tests:
+} -match glob -output {init_for_tests:
+test_properties:Tests running in interp|*
+test_properties:Tests located in|*/test
+test_properties:Tests running in|*
+test_properties:Temporary files stored in|*
+test_properties:Running tests that match|\*
+test_properties:Skipping test files that match|l\.\*\.test
+test_properties:Only running test files that match|\*\.test
 test_file_start:tclunit.test
 test_started:tclunit.test|init_for_tests-1.1
 incr_test_counter:tclunit.test|1|0|0
@@ -873,7 +880,7 @@ test_failed_continue:tests4tclunit.test|failure-1.1|==== failure-1.1 Failing tes
 
 incr_test_counter:tests4tclunit.test|1|1|1
 test_skipped:tests4tclunit.test|skip-1.1|emptyTest
-tclunit::run_tests:40|6|1|7
+tclunit::run_tests:40|6|1|2000
 }
 
 # test suite cleanup

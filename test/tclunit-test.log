@@ -6,7 +6,7 @@ Test files run in separate interpreters
 Running tests that match:  *
 Skipping test files that match:  l.*.test
 Only running test files that match:  *.test
-Tests began at Sat Jun 23 23:09:46 CEST 2012
+Tests began at Sat Jun 23 23:09:45 CEST 2012
 tclunit.test
 ---- init_for_tests-1.1 start
 ++++ init_for_tests-1.1 PASSED
@@ -110,7 +110,7 @@ tests4tclunit.test
 
 ++++ skip-1.1 SKIPPED: emptyTest
 
-Tests ended at Sat Jun 23 23:09:46 CEST 2012
+Tests ended at Sat Jun 23 23:09:47 CEST 2012
 all.tcl:	Total	47	Passed	40	Skipped	6	Failed	1
 Sourced 2 Test Files.
 Files with failing tests: tests4tclunit.test

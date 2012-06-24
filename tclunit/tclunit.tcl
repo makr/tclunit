@@ -54,6 +54,27 @@ namespace eval tclunit {
 	status		noop
 	total		noop
     }
+
+    # List with known properties from tcltest (2.2.10 / 2.3.4)
+    variable known_props {}
+    lappend known_props \
+	"Tests running in interp:" \
+	"Tests located in:" \
+	"Tests running in:" \
+	"Temporary files stored in" \
+	"Test files sourced into current interpreter" \
+	"Test files run in separate interpreters" \
+	"Skipping tests that match:" \
+	"Running tests that match:" \
+	"Skipping test files that match:" \
+	"Only running test files that match:"
+
+    # Array with the tcltest begin and end timestamps prefix
+    variable timeprefix
+    array set timeprefix {
+	start	"Tests began at"
+	end	"Tests ended at"
+    }
 }
 
 #-----------------------------------------------------------
@@ -254,6 +275,7 @@ proc tclunit::run_all_tests {testdirectory} {
     }
     set testScript [subst $testScript]
     set rt(testdirectory) $testdirectory
+    set rt(phase) "start"
     do_run_tests $testScript
 }
 
@@ -282,6 +304,7 @@ proc tclunit::run_test_file {testfile} {
     set testScript [subst $testScript]
     test_file_start [file tail $testfile]
     set rt(testdirectory) [file dirname $testfile]
+    set rt(phase) "tests"
     do_run_tests $testScript
 }
 
@@ -364,34 +387,61 @@ proc tclunit::capture_test_output {chan} {
     # FIXME: just for debugging
     # puts stderr "${line}"
 
-    #  If we're saving up test results...
+    # Now check which filter is handling this line...
     if { $cto(capturing) } {
+	# We're saving up test results.
 	test_failed_continue $line
 	return
+    }
 
-    } elseif {[string trim $line] eq ""} {
+    if {[string trim $line] eq ""} {
 	# empty lines can be ignored beyond this point
 	return
     }
 
-    # TODO: also capture test properties, e.g. interpreter, test directory, etc.
+    if {$rt(phase) eq "start"} {
+	if {[test_properties $line]} {
+	    # Logged a property line.
+	    return
+	} elseif {[started_tests $line]} {
+	    # Logged tests started time stamp.
+	    return
+	}
+    }
+
+    if {$rt(phase) ne "end"} {
+	if {[string match "*.test" $line]} {
+	    # If the line is a file name then save it.
+	    test_file_start $line
+	    return
+	} elseif {[string match "---- * start" $line]} {
+	    # A new test case just started its execution.
+	    test_started $line
+	    return
+
+	} elseif {[string match "++++ * PASSED" $line]} {
+	    # A test case has passed.
+	    test_passed $line
+	    return
+
+	} elseif {[string match "++++ * SKIPPED: *" $line]} {
+	    # A test case has been skipped.
+	    test_skipped $line
+	    return
+
+	} elseif {[string match "==== * FAILED" $line]} {
+	    # A test case failed (starts capturing mode).
+	    test_failed $line
+	    return
+
+	} elseif {[finished_tests $line]} {
+	    # Logged tests finished time stamp.
+	    return
+	}
+    }
+
     # TODO: also capture test file errors
     # TODO: also capture output not obviously belonging to any test
-
-    #  Check for start, pass and fail lines
-    switch -glob -- $line {
-	"++++ * PASSED"     {test_passed $line}
-	"==== * FAILED"     {test_failed $line}
-	"---- * start"      {test_started $line}
-	"++++ * SKIPPED: *" {test_skipped $line}
-    }
-
-    #  If the line is a file name
-    #   then save it
-    if {[file exists [file join $rt(testdirectory) $line]] ||
-	([file extension $line] eq ".test")} {
-	test_file_start $line
-    }
 }
 
 #-----------------------------------------------------------
@@ -413,7 +463,10 @@ proc tclunit::test_skipped {line} {
     incr_test_counter "skipped"
 
     # send update
-    scan $line "++++ %s SKIPPED: %s" testName reason
+    if {[scan $line "++++ %s SKIPPED: %s" testName reason] < 2} {
+	# fallback if testname contains whitespace
+	regexp -- {^\+\+\+\+ (.+) SKIPPED: (.+)$} $line -> testName reason
+    }
     {*}$cbs(skipped) $cto(filename) $testName $reason
 }
 
@@ -601,7 +654,13 @@ proc tclunit::run_tests {path} {
     }
 
     # Computing timing statistic
-    set time_in_ms [expr {$rt(finished_tests) - $rt(started_tests)}]
+    if {[info exists cto(tests_started)] && ($cto(tests_started) ne "") &&
+	[info exists cto(tests_finished)] && ($cto(tests_finished) ne "")} {
+	set time_in_ms [expr {($cto(tests_finished) - $cto(tests_started)) * 1000}]
+    }
+    if {![info exists time_in_ms] || ($time_in_ms <= 1000)} {
+	set time_in_ms [expr {$rt(finished_tests) - $rt(started_tests)}]
+    }
 
     # send final statistics
     {*}$cbs(total) $cto(totalpassed) $cto(totalskipped) $cto(totalfailed) $time_in_ms
@@ -656,11 +715,145 @@ proc tclunit::read_testlog {testlog} {
     fconfigure $rt(pipe) -blocking 0 -buffering line
     fileevent $rt(pipe) readable [namespace code [list capture_test_output $rt(pipe)]]
 
+    set rt(phase) "start"
+
     #  Wait for the parser to finish
     vwait [namespace which -variable rt](finished_tests)
 
     #  check the time
     set rt(finished_tests) [clock milliseconds]
+}
+
+#-----------------------------------------------------------
+#  tclunit::test_properties
+#
+#  Description:
+#    Test suites started through runAllTests emit a couple of lines
+#    describing the test environment, this is trying to catch them
+#    and then raises a property event. It stops scanning for properties
+#    with the first test case.
+#
+#  Arguments:
+#    line   - a line from the log
+#  Side Effects:
+#    calls property event handler
+#-----------------------------------------------------------
+proc tclunit::test_properties {line} {
+    variable rt
+    variable cbs
+    variable known_props
+
+    if {[string match "---- *" $line] ||
+	[string match "++++ *" $line] ||
+	[string match "==== *" $line]} {
+	set rt(phase) "tests"
+	return 0
+    }
+
+    set found 0
+    foreach property $known_props {
+	if {[string match "${property}*" $line]} {
+	    set found 1
+	    set value [string range $line [string length $property] end]
+	    if {$value eq ""} {
+		set value true
+	    }
+	    break
+	}
+    }
+    if {!$found} {
+	return 0
+
+    } elseif {[string index $property end] eq ":"} {
+	{*}$cbs(property) [string range $property 0 end-1] [string trim $value]
+
+    } else {
+	{*}$cbs(property) $property [string trim $value]
+    }
+    return 1
+}
+
+#-----------------------------------------------------------
+#  tclunit::convert_datetime
+#
+#  Description:
+#    Return either the clock seconds value or the empty string.
+#
+#  Arguments:
+#    datetimestring   - a standard Tcl timestamp
+#  Side Effects:
+#    none
+#-----------------------------------------------------------
+proc tclunit::convert_datetime {datetimestring} {
+    set dt [string trim $datetimestring]
+
+    if {![catch {clock scan $dt} timestamp]} {
+	# Free form scan succeeded.
+	return $timestamp
+
+    } elseif {![catch {clock scan $dt -format "%a %b %d %H:%M:%S %Z %Y"} timestamp]} {
+	# Standard Tcl format scan succeeded.
+	return $timestamp
+    }
+
+    # Signal non-standard Tcl datetime.
+    return ""
+}
+
+#-----------------------------------------------------------
+#  tclunit::started_tests
+#
+#  Description:
+#    Test suites started through runAllTests emit two time stamps in standard
+#    Tcl datetime format, signaling start and end time of the tests.
+#
+#  Arguments:
+#    line   - a line from the test log
+#  Side Effects:
+#    stores the start time in CTO
+#-----------------------------------------------------------
+proc tclunit::started_tests {line} {
+    variable rt
+    variable cto
+    variable timeprefix
+
+    if {![string match "${timeprefix(start)} *" $line]} {
+	return 0
+    }
+
+    set rt(phase) "tests"
+
+    set datetime [string range $line [string length $timeprefix(start)] end]
+    set cto(tests_started) [convert_datetime $datetime]
+    return 1
+}
+
+#-----------------------------------------------------------
+#  tclunit::finished_tests
+#
+#  Description:
+#    Test suites started through runAllTests emit two time stamps in standard
+#    Tcl datetime format, signaling start and end time of the tests.
+#
+#  Arguments:
+#    line   - a line from the test log
+#  Side Effects:
+#    stores the time when the tests finished in CTO
+#-----------------------------------------------------------
+proc tclunit::finished_tests {line} {
+    variable rt
+    variable cto
+    variable timeprefix
+
+    if {![string match "${timeprefix(end)} *" $line]} {
+	return 0
+    }
+
+    set rt(phase) "end"
+
+    set datetime [string range $line [string length $timeprefix(end)] end]
+    set cto(tests_finished) [convert_datetime $datetime]
+    return 1
 }
 
 package provide tclunit 1.1
