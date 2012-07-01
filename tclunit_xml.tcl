@@ -3,6 +3,9 @@
 #
 #  tclunit_xml
 #
+# Tclunit_XML is using the refactored and extend tclunit package
+# to run testsuites or parse test logs and create jUnit compatible
+# XML reports from it.
 #
 #  Matthias Kraft
 #  June 19, 2012
@@ -84,5 +87,5 @@ proc tclunit_xml::main {args} {
 }
 
 if {[info exists argv]} {
-    tclunit_xml::main $argv
+    tclunit_xml::main {*}$argv
 }

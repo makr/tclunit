@@ -3,8 +3,7 @@ Refactoring Goals:
 
 * separated GUI from function
 * users can register callbacks for various events
-
-2. dump results as TestNG compatible XML file
+* wrote script dumping results as TestNG compatible XML file
 
 3. set functionality on top on tcltest, i.e. with interface and behavior
    compatibility (might not be necessary, depends on timing tests)
