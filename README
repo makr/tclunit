@@ -1,0 +1,71 @@
+tclunit
+=======
+
+tclunit is a not unit testing framework like jUnit. Tcl has tcltest for a long
+time providing this sort of functionality. tclunit is more or less sitting on
+top of tcltest and provides a way to react on tcltest's logging output.
+
+It comes with two examples that show how to use it:
+
+1. tclunit_gui.tcl
+
+That's a Tk based GUI which lets you run single test scripts, as well as all
+tests in a directory. The GUI shows the results in various details.
+It is basically the original script, see History below.
+
+2. tclunit_xml.tcl
+
+This script sort of converts the tcltest log into a jUnit compatible XML log
+that could, e.g. be used by Jenkins to provide statistics on test suites using
+tcltest.
+
+History
+-------
+
+API
+---
+tclunit::configure event "eventname" script
+
+tclunit::configure interp /path/to/interpreter
+
+tclunit::configure tcltest "list of tcltest::configure options"
+
+tclunit::configure reset
+
+tclunit::run_tests path
+
+tclunit::stop_tests
+
+For the callbacks the registered procedures have to take the following
+arguments:
+
+ Event		| Arguments
+----------------+-----------
+ init		|
+ property	| name value
+ suite		| filename
+ skipped	| filename testcase reason
+ start		| filename testcase
+ passed		| filename testcase ?time?
+ failed		| filename testcase report ?time?
+ status		| filename #passed #skipped #failed
+ total		| #passed #skipped #failed time
+ (error		| filename report) -> not yet implemented
+
+name = the property's name ...
+value = ... and its value
+filename = the name of the currently running textsuite (could be empty)
+testcase = the name of the current testcase
+reason = the name of the constraint that caused this test to be skipped
+time = execution time of the test/testsuite in milliseconds
+report = failure report of tcltest
+#passed = number of passed tests (if available)
+#skipped = number of skipped tests (if available)
+#failed = number of failed tests
+
+License
+-------
+
+See the file license.terms in this directory. It is the same license as the
+tcllib/tclapps license.
+
