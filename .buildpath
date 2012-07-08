@@ -5,7 +5,7 @@
 	<buildpathentry kind="con" path="org.eclipse.dltk.launching.INTERPRETER_CONTAINER/org.eclipse.dltk.internal.debug.ui.launcher.GenericTclInstallType/tclsh 8.5">
 		<attributes>
 			<attribute name="user_dependencies" value=""/>
-			<attribute name="auto_dependencies" value="tcltest|Tk|Tcl"/>
+			<attribute name="auto_dependencies" value="tcltest|Tcl"/>
 		</attributes>
 	</buildpathentry>
 </buildpath>

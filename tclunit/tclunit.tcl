@@ -127,7 +127,9 @@ proc tclunit::noop {args} {}
 #	skipped - the number of all skipped tests
 #	failed - the number of all failed tests
 #	time - time all testing took in ms
-#    property - not yet implemented
+#    property - called if one of the known tcltest messages appears
+#	name - name of the property
+#	value - and its value
 #    error - not yet implemented
 #
 #  Arguments:
