@@ -2,7 +2,7 @@
 <buildpath>
 	<buildpathentry kind="src" path="tclunit"/>
 	<buildpathentry kind="src" path="test"/>
-	<buildpathentry kind="con" path="org.eclipse.dltk.launching.INTERPRETER_CONTAINER/org.eclipse.dltk.internal.debug.ui.launcher.GenericTclInstallType/tclsh 8.5">
+	<buildpathentry kind="con" path="org.eclipse.dltk.launching.INTERPRETER_CONTAINER/org.eclipse.dltk.internal.debug.ui.launcher.GenericTclInstallType/tclsh8.5">
 		<attributes>
 			<attribute name="user_dependencies" value=""/>
 			<attribute name="auto_dependencies" value="tcltest|Tcl"/>

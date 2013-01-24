@@ -17,7 +17,7 @@
 #  in tclunit_gui.tcl now.
 #  The functionality has been touched and extended at
 #  various places to better fit into the new architecture
-#  and provide the possiblity to further extend it. It is now
+#  and provide the possibility to further extend it. It is now
 #  a proper package and moved in its own namespace.
 #
 #  Matthias Kraft
