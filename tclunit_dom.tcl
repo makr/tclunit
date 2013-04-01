@@ -1,74 +1,114 @@
 #!/usr/bin/env tclsh8.5
 #-----------------------------------------------------------
 #
-#  tclunit_xml
+#  tclunit_dom
 #
-# Tclunit_XML is using the refactored and extend tclunit package
+# Tclunit_DOM is using the refactored and extend tclunit package
 # to run testsuites or parse test logs and create jUnit compatible
-# XML reports from it.
+# XML reports from it. It is creating a DOM tree in memory before
+# dumping it as XML.
 #
 #  Matthias Kraft
-#  June 19, 2012
+#  April 1, 2013
 #
 #-----------------------------------------------------------
 # XML converter for tclunit
 
+package require tdom 0.8.3
 package require tclunit 1.1
 
-namespace eval tclunit_xml {
-    variable openedTags {} ;# list of tags to close
+namespace eval tclunit_dom {
+    variable testDocument
 }
 
-proc tclunit_xml::new_testsuite {filename} {
-    variable openedTags
+proc tclunit_dom::new_testsuite {filename} {
+    variable testDocument
+    variable currentNode
 
     close_tags
 
-    puts [format {<testsuite name="%s">} [file rootname [file tail $filename]]]
-    lappend openedTags testsuite
+    $testDocument createElement testsuite testSuite
+    $testSuite setAttribute name [file rootname [file tail $filename]]
+    $currentNode appendChild $testSuite
+    set currentNode $testSuite
 }
 
-proc tclunit_xml::close_tags {} {
-    variable openedTags
+proc tclunit_dom::close_tags {} {
+    variable testDocument
+    variable currentNode
 
-    foreach tag [lreverse $openedTags] {
-	puts [format {</%s>} $tag]
+    $testDocument documentElement currentNode
+}
+
+proc tclunit_dom::testcase_skipped {filename testcase reason} {
+    variable testDocument
+    variable currentNode
+
+    $testDocument createElement testcase testCase
+    $currentNode appendChild $testCase
+    $testCase setAttribute name $testcase \
+	classname [file rootname [file tail $filename]]
+
+    $testDocument createElement skipped Skipped
+    $testCase appendChild $Skipped
+    $Skipped setAttribute type CASE_SKIPPED
+
+    $testDocument createTextNode $reason Reason
+    $Skipped appendChild $Reason
+}
+
+proc tclunit_dom::testcase_passed {filename testcase {time 0}} {
+    variable testDocument
+    variable currentNode
+
+    $testDocument createElement testcase testCase
+    $currentNode appendChild $testCase
+    $testCase setAttribute name $testcase \
+	classname [file rootname [file tail $filename]]
+}
+
+proc tclunit_dom::testcase_failed {filename testcase report {time 0}} {
+    variable testDocument
+    variable currentNode
+
+    $testDocument createElement testcase testCase
+    $currentNode appendChild $testCase
+    $testCase setAttribute name $testcase \
+	classname [file rootname [file tail $filename]]
+
+    $testDocument createElement failure Failure
+    $testCase appendChild $Failure
+    $Failure setAttribute type CASE_FAILED message "$testcase FAILED"
+
+    $testDocument createTextNode $report Report
+    $Failure appendChild $Report
+}
+
+proc tclunit_dom::property {name value} {
+    variable testDocument
+
+    $testDocument documentElement Root
+    $Root firstChild Properties
+
+    if {$Properties eq ""} {
+	$testDocument createElement properties Properties
+	$Root appendChild $Properties
+
+    } elseif {[$Properties nodeName] ne "properties"} {
+	set Old1st $Properties
+	$testDocument createElement properties Properties
+	$Root insertBefore $Properties $Old1st
     }
 
-    set openedTags {}
+    $testDocument createElement property Property
+    $Property setAttribute name $name value $value
+    $Properties appendChild $Property
 }
 
-proc tclunit_xml::testcase_skipped {filename testcase reason} {
-    puts [format {<testcase name="%s" classname="%s">} \
-	$testcase [file rootname [file tail $filename]]]
-    puts [format {<skipped type="CASE_SKIPPED">%s</skipped>} $reason]
-    puts "</testcase>"
-}
+proc tclunit_dom::main {args} {
+    variable testDocument
+    variable currentNode
 
-proc tclunit_xml::testcase_passed {filename testcase {time 0}} {
-    puts [format {<testcase name="%s" classname="%s"/>} \
-	$testcase [file rootname [file tail $filename]]]
-}
-
-proc tclunit_xml::testcase_failed {filename testcase report {time 0}} {
-    puts [format {<testcase name="%s" classname="%s">} \
-	$testcase [file rootname [file tail $filename]]]
-    puts [format {<failure type="CASE_FAILED" message="%s FAILED">%s</failure>} \
-	$testcase $report]
-    puts "</testcase>"
-}
-
-proc tclunit_xml::property {name value} {
-    variable openedTags
-
-    if {[lindex $openedTags end] ne "properties"} {
-	puts "<properties>"
-	lappend openedTags properties
-    }
-    puts [format {<property name="%s" value="%s"/>} $name $value]
-}
-
-proc tclunit_xml::main {args} {
     tclunit::configure \
 	event init [namespace code close_tags] \
 	event suite [namespace code new_testsuite] \
@@ -77,15 +117,16 @@ proc tclunit_xml::main {args} {
 	event failed [namespace code testcase_failed] \
 	event property [namespace code property]
 
-    puts "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
-    puts "<testsuites>"
+    dom createDocument testsuites testDocument
+    $testDocument documentElement currentNode
+
     foreach path $args {
 	tclunit::run_tests $path
     }
-    close_tags
-    puts "</testsuites>"
+    puts "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
+    $testDocument asXML -indent 2 -channel stdout
 }
 
 if {[info exists argv]} {
-    tclunit_xml::main {*}$argv
+    tclunit_dom::main {*}$argv
 }
