@@ -40,51 +40,27 @@ proc tclunit_dom::close_tags {} {
     $testDocument documentElement currentNode
 }
 
-proc tclunit_dom::testcase_skipped {filename testcase reason} {
+proc tclunit_dom::set_testcase {type filename testcase {reason ""} {time 0}} {
     variable testDocument
     variable currentNode
 
     $testDocument createElement testcase testCase
-    $currentNode appendChild $testCase
-    $testCase setAttribute name $testcase \
-	classname [file rootname [file tail $filename]]
-
-    $testDocument createElement skipped Skipped
-    $testCase appendChild $Skipped
-    $Skipped setAttribute type CASE_SKIPPED
-
-    $testDocument createTextNode $reason Reason
-    $Skipped appendChild $Reason
+    $currentNode appendFromScript {
+	testcase -name $testcase -classname [file rootname [file tail $filename]] {
+	    if {$type eq "failed"} {
+		failure -type CASE_FAILED -message "$testcase FAILED" {
+		    reason $reason
+		}
+	    } elseif {$type eq "skipped"} {
+		skipped -type CASE_SKIPPED {
+		    reason $reason
+		}
+	    }
+	}
+    }
 }
 
-proc tclunit_dom::testcase_passed {filename testcase {time 0}} {
-    variable testDocument
-    variable currentNode
-
-    $testDocument createElement testcase testCase
-    $currentNode appendChild $testCase
-    $testCase setAttribute name $testcase \
-	classname [file rootname [file tail $filename]]
-}
-
-proc tclunit_dom::testcase_failed {filename testcase report {time 0}} {
-    variable testDocument
-    variable currentNode
-
-    $testDocument createElement testcase testCase
-    $currentNode appendChild $testCase
-    $testCase setAttribute name $testcase \
-	classname [file rootname [file tail $filename]]
-
-    $testDocument createElement failure Failure
-    $testCase appendChild $Failure
-    $Failure setAttribute type CASE_FAILED message "$testcase FAILED"
-
-    $testDocument createTextNode $report Report
-    $Failure appendChild $Report
-}
-
-proc tclunit_dom::property {name value} {
+proc tclunit_dom::set_property {name value} {
     variable testDocument
 
     $testDocument documentElement Root
@@ -100,9 +76,9 @@ proc tclunit_dom::property {name value} {
 	$Root insertBefore $Properties $Old1st
     }
 
-    $testDocument createElement property Property
-    $Property setAttribute name $name value $value
-    $Properties appendChild $Property
+    $Properties appendFromScript {
+	property -name $name -value $value
+    }
 }
 
 proc tclunit_dom::main {args} {
@@ -112,13 +88,19 @@ proc tclunit_dom::main {args} {
     tclunit::configure \
 	event init [namespace code close_tags] \
 	event suite [namespace code new_testsuite] \
-	event skipped [namespace code testcase_skipped] \
-	event passed [namespace code testcase_passed] \
-	event failed [namespace code testcase_failed] \
-	event property [namespace code property]
+	event skipped [namespace code {set_testcase skipped}] \
+	event passed [namespace code {set_testcase passed}] \
+	event failed [namespace code {set_testcase failed}] \
+	event property [namespace code set_property]
 
     dom createDocument testsuites testDocument
     $testDocument documentElement currentNode
+
+    dom createNodeCmd elementNode testcase
+    dom createNodeCmd elementNode skipped
+    dom createNodeCmd elementNode failure
+    dom createNodeCmd textNode reason
+    dom createNodeCmd elementNode property
 
     foreach path $args {
 	tclunit::run_tests $path

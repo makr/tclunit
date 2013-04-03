@@ -19,6 +19,10 @@ This script sort of converts the tcltest log into a jUnit compatible XML log
 that could, e.g. be used by Jenkins to provide statistics on test suites using
 tcltest.
 
+3. tclunit_dom.tcl
+
+Same functionality as above, but requires tDOM.
+
 History
 -------
 

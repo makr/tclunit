@@ -1,3 +1,8 @@
+2013-04-03  Matthias Kraft  <M dot Kraft at gmx dot com>
+
+	* tclunit_dom.tcl: Added simple tDOM based example mirroring
+	tclunit_xml.tcl functionality.
+
 2012-06-19  Matthias Kraft  <M dot Kraft at gmx dot com>
 
 	* tclunit/tclunit.tcl test/tclunit.test: Fixed unhandled short reads.
