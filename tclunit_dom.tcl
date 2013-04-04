@@ -21,14 +21,28 @@ namespace eval tclunit_dom {
     variable testDocument
 }
 
+proc tclunit_dom::suite_name {filename} {
+    if {$filename eq ""} {
+	return "unknown"
+    } else {
+	return [file rootname [file tail $filename]]
+    }
+}
+
+# FIXME: create testsuite@name(String),hostname(String),package(String),timestamp(yyyy-MM-ddTHH:mm:ss),id(Int)
+# FIXME: close  testsuite@tests(Int),errors(Int),failures(Int),skipped(Int),time(Float)
 proc tclunit_dom::new_testsuite {filename} {
+    variable generatedId
     variable testDocument
     variable currentNode
 
     close_tags
 
+    incr generatedId 1
+
     $testDocument createElement testsuite testSuite
-    $testSuite setAttribute name [file rootname [file tail $filename]]
+    $testSuite setAttribute name [suite_name $filename] \
+	hostname [info hostname] id $generatedId
     $currentNode appendChild $testSuite
     set currentNode $testSuite
 }
@@ -40,13 +54,17 @@ proc tclunit_dom::close_tags {} {
     $testDocument documentElement currentNode
 }
 
+# FIXME: testcase@name(String),classname(String),time(Float)
+# testcase/failure@type,message/#text
+# FIXME: testcase/skipped@type,message/#text
+# TODO: testcase/error@message/#text
 proc tclunit_dom::set_testcase {type filename testcase {reason ""} {time 0}} {
     variable testDocument
     variable currentNode
 
     $testDocument createElement testcase testCase
     $currentNode appendFromScript {
-	testcase -name $testcase -classname [file rootname [file tail $filename]] {
+	testcase -name $testcase -classname [suite_name $filename] {
 	    if {$type eq "failed"} {
 		failure -type CASE_FAILED -message "$testcase FAILED" {
 		    reason $reason
@@ -60,6 +78,10 @@ proc tclunit_dom::set_testcase {type filename testcase {reason ""} {time 0}} {
     }
 }
 
+# TODO: system-out/#text at testcase or testsuite level
+# TODO: system-err/#text at testcase or testsuite level
+
+# properties/property@name(String),value(String)
 proc tclunit_dom::set_property {name value} {
     variable testDocument
 
@@ -93,6 +115,7 @@ proc tclunit_dom::main {args} {
 	event failed [namespace code {set_testcase failed}] \
 	event property [namespace code set_property]
 
+    # /testsuites
     dom createDocument testsuites testDocument
     $testDocument documentElement currentNode
 

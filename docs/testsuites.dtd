@@ -1,6 +1,7 @@
 <!-- ------------------------------------------------------------------------
  Taken from documentation of
- apache-ant-1.8.4:/manual/api/org/apache/tools/ant/taskdefs/optional/junit/XMLConstants.html
+  apache-ant-1.8.4:/manual/api/org/apache/tools/ant/taskdefs/optional/junit/XMLConstants.html
+ and enhanced to fill in gaps.
  ------------------------------------------------------------------------ -->
 
 <!ELEMENT testsuites (testsuite*)>
@@ -22,7 +23,7 @@
   <!ATTLIST property name  CDATA #REQUIRED>
   <!ATTLIST property value CDATA #REQUIRED>
 
-<!ELEMENT testcase (failure?, error?)>
+<!ELEMENT testcase (failure?, error?, skipped?)>
   <!ATTLIST testcase name       CDATA #REQUIRED>
   <!ATTLIST testcase classname  CDATA #IMPLIED>
   <!ATTLIST testcase time       CDATA #REQUIRED>
@@ -34,6 +35,9 @@
 <!ELEMENT error (#PCDATA)>
   <!ATTLIST error message CDATA #IMPLIED>
   <!ATTLIST error type    CDATA #REQUIRED>
+
+<!ELEMENT skipped EMPTY>
+  <!ATTLIST skipped message CDATA #IMPLIED>
 
 <!ELEMENT system-err (#PCDATA)>
 
