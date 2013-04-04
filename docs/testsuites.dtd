@@ -1,0 +1,40 @@
+<!-- ------------------------------------------------------------------------
+ Taken from documentation of
+ apache-ant-1.8.4:/manual/api/org/apache/tools/ant/taskdefs/optional/junit/XMLConstants.html
+ ------------------------------------------------------------------------ -->
+
+<!ELEMENT testsuites (testsuite*)>
+
+<!ELEMENT testsuite (properties, testcase*,
+                     failure?, error?,
+                     system-out?, system-err?)>
+  <!ATTLIST testsuite name      CDATA #REQUIRED>
+  <!ATTLIST testsuite tests     CDATA #REQUIRED>
+  <!ATTLIST testsuite failures  CDATA #REQUIRED>
+  <!ATTLIST testsuite errors    CDATA #REQUIRED>
+  <!ATTLIST testsuite time      CDATA #REQUIRED>
+  <!ATTLIST testsuite package   CDATA #IMPLIED>
+  <!ATTLIST testsuite id        CDATA #IMPLIED>
+
+<!ELEMENT properties (property*)>
+
+<!ELEMENT property EMPTY>
+  <!ATTLIST property name  CDATA #REQUIRED>
+  <!ATTLIST property value CDATA #REQUIRED>
+
+<!ELEMENT testcase (failure?, error?)>
+  <!ATTLIST testcase name       CDATA #REQUIRED>
+  <!ATTLIST testcase classname  CDATA #IMPLIED>
+  <!ATTLIST testcase time       CDATA #REQUIRED>
+
+<!ELEMENT failure (#PCDATA)>
+  <!ATTLIST failure message CDATA #IMPLIED>
+  <!ATTLIST failure type    CDATA #REQUIRED>
+
+<!ELEMENT error (#PCDATA)>
+  <!ATTLIST error message CDATA #IMPLIED>
+  <!ATTLIST error type    CDATA #REQUIRED>
+
+<!ELEMENT system-err (#PCDATA)>
+
+<!ELEMENT system-out (#PCDATA)>
