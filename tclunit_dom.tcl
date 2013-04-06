@@ -78,6 +78,24 @@ proc tclunit_dom::set_testcase {type filename testcase {reason ""} {time 0}} {
     }
 }
 
+proc tclunit_dom::set_summary {passed failed skipped {time 0.0}} {
+    variable testDocument
+    variable currentNode
+
+    if {($currentNode ne "") && ([$currentNode nodeName] eq "testsuite")} {
+	$currentNode parentNode Suites
+	$Suites setAttribute tests [expr {$passed + $failed + $skipped}] \
+	    failures $failed skipped $skipped
+	if {$time > 0.0} {
+	    $Suites setAttribute time $time
+	}
+    } else {
+	puts stderr \
+	    [format "!!!! total needs <testsuite/>, but currentNode is %s!" \
+	     [expr {($currentNode ne "") ? [$currentNode nodeName] : "(empty)"}]]
+    }
+}
+
 # TODO: system-out/#text at testcase or testsuite level
 # TODO: system-err/#text at testcase or testsuite level
 
@@ -113,7 +131,8 @@ proc tclunit_dom::main {args} {
 	event skipped [namespace code {set_testcase skipped}] \
 	event passed [namespace code {set_testcase passed}] \
 	event failed [namespace code {set_testcase failed}] \
-	event property [namespace code set_property]
+	event property [namespace code set_property] \
+	event total [namespace code set_summary]
 
     # /testsuites
     dom createDocument testsuites testDocument
