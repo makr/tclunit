@@ -78,7 +78,7 @@ proc tclunit_dom::set_testcase {type filename testcase {reason ""} {time 0}} {
     }
 }
 
-proc tclunit_dom::set_summary {passed failed skipped {time 0.0}} {
+proc tclunit_dom::set_summary {passed skipped failed {time 0.0}} {
     variable testDocument
     variable currentNode
 
