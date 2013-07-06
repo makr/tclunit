@@ -374,7 +374,11 @@ proc tclunit::capture_test_output {chan} {
     variable cto
     variable rt
 
-    if {[eof $chan]} {
+    if {[catch {eof $chan} iors]} {
+	puts stderr "!!!! while checking eof test output: $iors"
+	puts stderr $::errorInfo
+
+    } elseif {$iors} {
 	# notify [do_run_tests] that we've completed
 	set rt(finished_tests) 1
 	close $chan
@@ -382,7 +386,11 @@ proc tclunit::capture_test_output {chan} {
     }
 
     # Read the line
-    if {[gets $chan line] < 0} {
+    if {[catch {gets $chan line} iors]} {
+	puts stderr "!!!! while reading test output: $iors"
+	puts stderr $::errorInfo
+
+    } elseif {$iors < 0} {
 	# not enough input available
 	return
     }

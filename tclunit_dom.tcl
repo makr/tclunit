@@ -125,6 +125,8 @@ proc tclunit_dom::main {args} {
     variable testDocument
     variable currentNode
 
+    interp bgerror {} [namespace code bgerror]
+
     tclunit::configure \
 	event init [namespace code close_tags] \
 	event suite [namespace code new_testsuite] \
@@ -149,6 +151,10 @@ proc tclunit_dom::main {args} {
     }
     puts "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
     $testDocument asXML -indent 2 -channel stdout
+}
+
+proc tclunit_dom::bgerror {msg details} {
+    puts stderr "!!!! bgerror hit: $msg"
 }
 
 if {[info exists argv]} {

@@ -19,6 +19,10 @@ namespace eval tclunit_xml {
     variable openedTags {} ;# list of tags to close
 }
 
+proc tclunit_xml::escape_xml {text} {
+    string map {& &amp; < &lt; > &gt; \" &quot;} $text
+}
+
 proc tclunit_xml::new_testsuite {filename} {
     variable openedTags
 
@@ -41,7 +45,7 @@ proc tclunit_xml::close_tags {} {
 proc tclunit_xml::testcase_skipped {filename testcase reason} {
     puts [format {<testcase name="%s" classname="%s">} \
 	$testcase [file rootname [file tail $filename]]]
-    puts [format {<skipped type="CASE_SKIPPED">%s</skipped>} $reason]
+    puts [format {<skipped type="CASE_SKIPPED">%s</skipped>} [escape_xml $reason]]
     puts "</testcase>"
 }
 
@@ -54,7 +58,7 @@ proc tclunit_xml::testcase_failed {filename testcase report {time 0}} {
     puts [format {<testcase name="%s" classname="%s">} \
 	$testcase [file rootname [file tail $filename]]]
     puts [format {<failure type="CASE_FAILED" message="%s FAILED">%s</failure>} \
-	$testcase $report]
+	$testcase [escape_xml $report]]
     puts "</testcase>"
 }
 
@@ -65,7 +69,7 @@ proc tclunit_xml::property {name value} {
 	puts "<properties>"
 	lappend openedTags properties
     }
-    puts [format {<property name="%s" value="%s"/>} $name $value]
+    puts [format {<property name="%s" value="%s"/>} [escape_xml $name] [escape_xml $value]]
 }
 
 proc tclunit_xml::main {args} {
